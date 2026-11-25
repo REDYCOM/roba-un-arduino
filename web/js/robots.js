@@ -2,15 +2,17 @@
 //  ROBOTS ENEMIGOS: modelos, IA, oleadas, jefe MEGA-ARDUINO, botín
 //  (valores de Robots.server.luau, escalados de studs a metros)
 // =====================================================================
+const ST = 0.36; // metros por stud
 const TIPOS = {
-  Seguidor: { vida: 120, vel: 7.4, dano: 20, alcance: 1.4, alto: 1.9, radio: 0.55, puntos: 15, fx: 1 },
-  Arana:    { vida: 70, vel: 9.0, dano: 15, alcance: 1.3, alto: 1.1, radio: 0.9, puntos: 10, fx: 0.8, nombre: 'Araña' },
-  Soldado:  { vida: 180, vel: 6.2, dano: 25, alcance: 1.5, alto: 2.3, radio: 0.65, puntos: 20, fx: 1.4, caja: 0.08 },
-  Dron:     { vida: 90, vel: 8.2, dano: 0, alcance: 0, alto: 0.8, radio: 0.9, puntos: 20, fx: 1, vuela: true, caja: 0.05, disparo: { dano: 12, cad: 2.4, alcance: 32 } },
-  Tanque:   { vida: 600, vel: 4.1, mata: true, alcance: 1.2, alto: 2.6, radio: 1.9, puntos: 40, fx: 2, caja: 0.15 },
-  Chatarra: { vida: 320, vel: 5.7, dano: 35, alcance: 1.8, alto: 3.0, radio: 0.85, puntos: 25, fx: 2, caja: 0.25 },
-  Coloso:   { vida: 1000, vel: 4.5, mata: true, alcance: 2.2, alto: 6.8, radio: 1.6, puntos: 80, fx: 3.5, caja: 1, pasos: true },
-  Jefe:     { vida: 1500, vel: 3.8, mata: true, alcance: 2.6, alto: 8.6, radio: 2.2, puntos: 150, fx: 4, pasos: true, jefe: true, nombre: 'MEGA-ARDUINO' },
+  Seguidor:  { vida: 120, vel: 7.4, dano: 20, alcance: 3.6 * ST, puntos: 15, fx: 1 },
+  Arana:     { vida: 70, vel: 9.0, dano: 15, alcance: 3.4 * ST, puntos: 10, fx: 0.8, nombre: 'Araña' },
+  Soldado:   { vida: 180, vel: 6.2, dano: 25, alcance: 3.8 * ST, puntos: 20, fx: 1.4, caja: 0.08 },
+  Dron:      { vida: 90, vel: 8.2, dano: 0, alcance: 0, puntos: 20, fx: 1, vuela: true, caja: 0.05, disparo: { dano: 12, cad: 2.4, alcance: 32 } },
+  Tanque:    { vida: 600, vel: 4.1, mata: true, alcance: 5.8 * ST, puntos: 40, fx: 2, caja: 0.15 },
+  Chatarra:  { vida: 320, vel: 5.7, dano: 35, alcance: 4.6 * ST, puntos: 25, fx: 2, caja: 0.25 },
+  Coloso:    { vida: 1000, vel: 4.5, mata: true, alcance: 9 * ST, puntos: 80, fx: 3.5, caja: 1, pasos: true },
+  Jefe:      { vida: 1500, vel: 3.8, mata: true, alcance: 11.5 * ST, puntos: 150, fx: 4, pasos: true, jefe: true, nombre: 'MEGA-ARDUINO' },
+  JefeFinal: { vida: 6000, vel: 3.2, mata: true, alcance: 16 * ST, puntos: 500, fx: 6, pasos: true, jefe: true, final: true, nombre: 'MEGA-ARDUINO DE ARDUNOL' },
 };
 
 // ---------- utilidades de modelado ----------
@@ -23,160 +25,6 @@ const RM = {
   SP: (r, w = 14, h = 10) => new THREE.SphereGeometry(r, w, h),
   G(padre, x = 0, y = 0, z = 0) { const g = new THREE.Group(); g.position.set(x, y, z); padre.add(g); return g; },
 
-  // humanoide genérico (pies en y=0, mira hacia -z)
-  humanoide(o) {
-    const { P, BX, CY, G } = RM;
-    const raiz = new THREE.Group(), s = o.alto / 2;
-    const cuerpo = o.cuerpo, osc = o.oscuro, ojo = o.ojo;
-    const torso = G(raiz, 0, 0.95 * s, 0);
-    P(torso, BX(0.5 * s, 0.22 * s, 0.32 * s), osc, 0, 0.08 * s, 0);
-    const pecho = P(torso, BX((o.ancho || 0.72) * s, 0.62 * s, 0.42 * s), cuerpo, 0, 0.5 * s, 0);
-    P(torso, BX(0.3 * s, 0.25 * s, 0.05 * s), osc, 0, 0.5 * s, -0.22 * s);
-    const piernas = [], brazos = [];
-    for (const lado of [-1, 1]) {
-      const p = G(raiz, lado * 0.2 * s, 0.95 * s, 0);
-      P(p, BX(0.22 * s, 0.48 * s, 0.25 * s), cuerpo, 0, -0.24 * s, 0);
-      P(p, CY(0.09 * s, 0.09 * s, 0.26 * s, 8).rotateZ(Math.PI / 2), osc, 0, -0.5 * s, 0);
-      P(p, BX(0.2 * s, 0.42 * s, 0.22 * s), osc, 0, -0.72 * s, 0);
-      P(p, BX(0.27 * s, 0.12 * s, 0.38 * s), cuerpo, 0, -0.9 * s, -0.06 * s);
-      piernas.push(p);
-      const b = G(torso, lado * ((o.ancho || 0.72) / 2 + 0.1) * s, 0.7 * s, 0);
-      if (o.hombros) P(b, BX(0.3 * s, 0.18 * s, 0.34 * s), o.hombros, 0, 0.04 * s, 0);
-      P(b, BX(0.16 * s, 0.42 * s, 0.17 * s), cuerpo, 0, -0.22 * s, 0);
-      P(b, BX(0.15 * s, 0.4 * s, 0.16 * s), osc, 0, -0.58 * s, 0);
-      // garras
-      for (const k of [-1, 0, 1]) {
-        const g = P(b, new THREE.ConeGeometry(0.035 * s, 0.18 * s, 5), o.garra || osc, k * 0.05 * s, -0.86 * s, -0.02 * s);
-        g.rotation.x = Math.PI;
-      }
-      brazos.push(b);
-    }
-    const cabeza = G(torso, 0, 0.85 * s, 0);
-    const cab = P(cabeza, BX(0.42 * s, 0.36 * s, 0.4 * s), o.cabeza || cuerpo, 0, 0.18 * s, 0);
-    cab.userData.critico = true;
-    const visor = P(cabeza, BX(0.32 * s, 0.08 * s, 0.03 * s), ojo, 0, 0.2 * s, -0.21 * s);
-    visor.userData.critico = true;
-    P(cabeza, CY(0.012 * s, 0.012 * s, 0.2 * s, 4), osc, 0.12 * s, 0.44 * s, 0);
-    P(cabeza, RM.SP(0.035 * s, 6, 4), ojo, 0.12 * s, 0.55 * s, 0);
-    return { raiz, partes: { torso, pecho, piernas, brazos, cabeza }, s };
-  },
-};
-
-// ---------- constructores de cada tipo ----------
-const MODELOS = {
-  Seguidor() {
-    const h = RM.humanoide({ alto: 1.9, cuerpo: RM.M('#d9dee8', { m: 0.3, r: 0.35 }), oscuro: RM.M('#2d3446'), ojo: RM.L('#ff3b3b', 4), ancho: 0.7 });
-    RM.P(h.partes.torso, RM.BX(0.2, 0.2, 0.05), RM.L('#36c5ff', 2.5), 0, 0.5 * h.s, -0.24 * h.s);
-    return h;
-  },
-  Soldado() {
-    const h = RM.humanoide({ alto: 2.3, cuerpo: RM.M('#5d6b55', { m: 0.5 }), oscuro: RM.M('#262b25'), ojo: RM.L('#ff2a2a', 4), hombros: RM.M('#3f4a3a'), ancho: 0.8 });
-    const b = h.partes.brazos[1];
-    RM.P(b, RM.CY(0.08, 0.1, 0.5, 10).rotateX(Math.PI / 2), RM.M('#222'), 0, -0.62 * h.s, -0.2);
-    RM.P(h.partes.torso, RM.BX(0.5, 0.4, 0.3), RM.M('#3f4a3a'), 0, 0.55 * h.s, 0.3 * h.s);
-    return h;
-  },
-  Chatarra() {
-    const oxido = RM.M('#8a4b2a', { m: 0.6, r: 0.8, flat: true }), osc = RM.M('#3b2a22', { r: 0.9 });
-    const h = RM.humanoide({ alto: 3.0, cuerpo: oxido, oscuro: osc, ojo: RM.L('#7dff4a', 4), ancho: 0.85, hombros: RM.M('#6b5a4a', { m: 0.7, r: 0.7 }), garra: RM.M('#999', { m: 0.9 }) });
-    h.partes.torso.rotation.x = 0.25; // encorvado
-    h.partes.brazos[0].scale.set(1, 1.25, 1);
-    for (let i = 0; i < 4; i++) RM.P(h.partes.torso, RM.BX(rand(0.1, 0.25), rand(0.1, 0.3), 0.05), RM.M(pick(['#6d6d6d', '#a65f2c', '#4c6b7a']), { m: 0.8 }), rand(-0.3, 0.3), rand(0.4, 1.1), -0.33);
-    const cable = RM.L('#7dff4a', 2);
-    RM.P(h.partes.torso, RM.CY(0.02, 0.02, 0.6, 4).rotateZ(0.6), cable, 0.2, 0.9, -0.3);
-    return h;
-  },
-  Coloso() {
-    const hierro = RM.M('#3a3f4b', { m: 0.7, r: 0.4 }), osc = RM.M('#1c1f26', { m: 0.6 }), lava = RM.L('#ff7a1a', 3);
-    const h = RM.humanoide({ alto: 6.8, cuerpo: hierro, oscuro: osc, ojo: lava, ancho: 0.9, hombros: RM.M('#4c5260', { m: 0.8 }), garra: RM.M('#c9ccd3', { m: 0.9 }) });
-    const s = h.s;
-    for (let i = 0; i < 3; i++) RM.P(h.partes.torso, RM.BX(0.6 * s, 0.03 * s, 0.02 * s), lava, 0, (0.3 + i * 0.18) * s, -0.22 * s);
-    RM.P(h.partes.torso, RM.SP(0.12 * s, 10, 8), lava, 0, 0.55 * s, -0.24 * s);
-    for (const p of h.partes.piernas) RM.P(p, RM.BX(0.05 * s, 0.3 * s, 0.02 * s), lava, 0, -0.72 * s, -0.12 * s);
-    return h;
-  },
-  Jefe() {
-    const pcb = RM.M('#0a6b8c', { m: 0.3, r: 0.4 }), osc = RM.M('#1b2633', { m: 0.6 }), oro = RM.M('#e8c25a', { m: 0.9, r: 0.25 });
-    const h = RM.humanoide({ alto: 8.6, cuerpo: RM.M('#14506a', { m: 0.5 }), oscuro: osc, ojo: RM.L('#ff3030', 5), ancho: 1.05, hombros: RM.M('#2b3d4f', { m: 0.7 }), cabeza: RM.M('#111318', { m: 0.4, r: 0.3 }), garra: oro });
-    const s = h.s, t = h.partes.torso;
-    // placa Arduino en el pecho
-    RM.P(t, RM.BX(0.95 * s, 0.66 * s, 0.06 * s), pcb, 0, 0.5 * s, -0.24 * s);
-    RM.P(t, RM.BX(0.36 * s, 0.12 * s, 0.05 * s), RM.M('#111'), 0.05 * s, 0.42 * s, -0.29 * s); // ATmega
-    RM.P(t, RM.BX(0.22 * s, 0.16 * s, 0.14 * s), RM.M('#c7ccd6', { m: 0.95, r: 0.2 }), -0.36 * s, 0.7 * s, -0.3 * s); // USB
-    RM.P(t, RM.BX(0.16 * s, 0.14 * s, 0.14 * s), RM.M('#111'), -0.36 * s, 0.32 * s, -0.3 * s); // jack
-    for (let i = 0; i < 10; i++) RM.P(t, RM.BX(0.05 * s, 0.05 * s, 0.05 * s), RM.M('#111'), (-0.3 + i * 0.07) * s, 0.8 * s, -0.29 * s); // pines
-    for (let i = 0; i < 8; i++) RM.P(t, RM.BX(0.05 * s, 0.05 * s, 0.05 * s), RM.M('#111'), (-0.1 + i * 0.07) * s, 0.2 * s, -0.29 * s);
-    h.partes.led = RM.P(t, RM.BX(0.05 * s, 0.035 * s, 0.03 * s), RM.L('#ffaa00', 5), 0.3 * s, 0.68 * s, -0.29 * s);
-    RM.P(t, RM.BX(0.05 * s, 0.035 * s, 0.03 * s), RM.L('#3dff6a', 4), 0.3 * s, 0.6 * s, -0.29 * s);
-    // capacitores en los hombros y corona de pines
-    for (const lado of [-1, 1]) {
-      RM.P(t, RM.CY(0.1 * s, 0.1 * s, 0.3 * s, 12), RM.M('#2756a8', { m: 0.3 }), lado * 0.42 * s, 1.0 * s, 0.1 * s);
-      RM.P(t, RM.CY(0.1 * s, 0.1 * s, 0.03 * s, 12), RM.M('#c7ccd6', { m: 0.9 }), lado * 0.42 * s, 1.16 * s, 0.1 * s);
-    }
-    for (let i = 0; i < 7; i++) RM.P(h.partes.cabeza, RM.BX(0.035 * s, 0.14 * s, 0.035 * s), oro, (-0.18 + i * 0.06) * s, 0.42 * s, 0);
-    h.partes.nucleo = RM.P(t, RM.SP(0.09 * s, 12, 8), RM.L('#36c5ff', 3), 0.18 * s, 0.6 * s, -0.27 * s);
-    return h;
-  },
-  Arana() {
-    const { P, G } = RM;
-    const raiz = new THREE.Group();
-    const cuerpo = RM.M('#2a2f3c', { m: 0.7, r: 0.35 }), pata = RM.M('#4a5263', { m: 0.8 }), ojo = RM.L('#ff2244', 5);
-    const torso = G(raiz, 0, 0.75, 0);
-    P(torso, RM.SP(0.55, 12, 8).scale(1, 0.55, 1.2), cuerpo);
-    P(torso, RM.SP(0.4, 10, 8).scale(1, 0.7, 1), RM.M('#3a4255', { m: 0.7 }), 0, 0.05, 0.6);
-    const cab = P(torso, RM.SP(0.3, 10, 8), cuerpo, 0, 0.05, -0.65); cab.userData.critico = true;
-    for (const [x, y] of [[-0.12, 0.12], [0.12, 0.12], [-0.06, 0.2], [0.06, 0.2]]) { const e = P(torso, RM.SP(0.05, 6, 4), ojo, x, y, -0.88); e.userData.critico = true; }
-    const piernas = [];
-    for (let i = 0; i < 6; i++) {
-      const lado = i < 3 ? -1 : 1, k = i % 3;
-      const p = G(torso, lado * 0.4, 0, -0.35 + k * 0.4);
-      p.rotation.y = lado * (Math.PI / 2) + (k - 1) * 0.5 * -lado;
-      const muslo = G(p);
-      muslo.rotation.z = 0; // se anima
-      P(muslo, RM.BX(0.08, 0.08, 0.7).translate(0, 0, -0.35).rotateX(-0.7), pata);
-      P(muslo, RM.BX(0.07, 0.07, 0.8).translate(0, 0, -0.4).rotateX(0.9).translate(0, 0.45, -0.53), pata);
-      piernas.push(muslo);
-    }
-    return { raiz, partes: { torso, patas: piernas }, s: 1 };
-  },
-  Dron() {
-    const { P, G } = RM;
-    const raiz = new THREE.Group();
-    const torso = G(raiz);
-    const cuerpo = RM.M('#e1e5ee', { m: 0.4, r: 0.3 }), osc = RM.M('#2b303d');
-    P(torso, RM.SP(0.45, 14, 10).scale(1, 0.6, 1), cuerpo);
-    const ojo = P(torso, RM.SP(0.16, 10, 8), RM.L('#ff2a2a', 5), 0, -0.05, -0.38); ojo.userData.critico = true;
-    const helices = [];
-    for (let i = 0; i < 4; i++) {
-      const a = (i / 4) * TAU + Math.PI / 4, x = Math.cos(a) * 0.75, z = Math.sin(a) * 0.75;
-      const brazo = P(torso, RM.BX(0.08, 0.06, 0.8), osc, x / 2, 0, z / 2); brazo.rotation.y = -a + Math.PI / 2;
-      P(torso, RM.CY(0.08, 0.1, 0.12, 8), osc, x, 0.05, z);
-      const hel = G(torso, x, 0.13, z);
-      P(hel, RM.BX(0.7, 0.015, 0.08), RM.M('#111', { m: 0.2 }));
-      P(hel, RM.BX(0.08, 0.015, 0.7), RM.M('#111', { m: 0.2 }));
-      helices.push(hel);
-    }
-    P(torso, RM.CY(0.05, 0.05, 0.3, 6).rotateX(Math.PI / 2), osc, 0, -0.2, -0.3);
-    return { raiz, partes: { torso, helices }, s: 1 };
-  },
-  Tanque() {
-    const { P, G } = RM;
-    const raiz = new THREE.Group();
-    const verde = RM.M('#55606e', { m: 0.6, r: 0.45 }), osc = RM.M('#1d2129', { m: 0.5, r: 0.7 }), amarillo = RM.M('#f2c230', { m: 0.3 });
-    const torso = G(raiz);
-    for (const lado of [-1, 1]) {
-      P(torso, RM.BX(0.9, 1.0, 3.6), osc, lado * 1.35, 0.55, 0);
-      for (let i = 0; i < 5; i++) P(torso, RM.CY(0.38, 0.38, 0.95, 12).rotateZ(Math.PI / 2), RM.M('#3a3f48', { m: 0.7 }), lado * 1.35, 0.45, -1.4 + i * 0.7);
-    }
-    P(torso, RM.BX(2.3, 0.9, 3.2), verde, 0, 1.3, 0);
-    P(torso, RM.BX(2.5, 0.12, 0.3), amarillo, 0, 1.15, -1.62);
-    const torreta = G(torso, 0, 1.75, 0.2);
-    P(torreta, RM.CY(0.85, 1.0, 0.7, 12), verde, 0, 0.35, 0);
-    const cab = P(torreta, RM.BX(0.7, 0.2, 0.05), RM.L('#ff3030', 4), 0, 0.45, -0.85); cab.userData.critico = true;
-    P(torreta, RM.CY(0.14, 0.17, 2.0, 10).rotateX(Math.PI / 2), osc, 0, 0.4, -1.6);
-    for (let i = 0; i < 3; i++) P(torso, RM.BX(0.25, 0.06, 0.25), RM.L('#ff7a1a', 3), -0.7 + i * 0.7, 1.76, 1.3);
-    return { raiz, partes: { torso, torreta }, s: 1 };
-  },
 };
 
 // =====================================================================
@@ -188,21 +36,22 @@ const Robots = {
 
   crear(tipo, x, z, mult = 1) {
     const cfg = TIPOS[tipo];
-    const mod = MODELOS[tipo]();
+    const mod = RB.construir(tipo);
+    // medidas reales del modelo de Roblox
+    if (!cfg.alto) { cfg.alto = cfg.vuela ? 0.8 : mod.med.alto; cfg.radio = Math.max(0.45, mod.med.ancho * (cfg.vuela ? 0.45 : 0.32)); }
     const r = {
-      tipo, cfg, raiz: mod.raiz, partes: mod.partes, s: mod.s,
+      tipo, cfg, mod, raiz: mod.raiz, partes: mod.partes, segs: mod.segs,
       vida: cfg.vida * mult, vidaMax: cfg.vida * mult, radio: cfg.radio,
       pos: V3(x, Terreno.altura(x, z), z), yaw: 0, fase: rand(0, 6), ataque: 0, cdAtaque: 0, flash: 0,
       aparecer: 0, esquivar: 0, ladoEsq: 1, cdDisparo: rand(1, 2.5), orbita: rand(0, TAU), altVuelo: rand(6, 9),
       cdOrbes: 4, cdPisoton: 3, cdRayos: 8, cdMisil: 6, furia: false, pasoT: 0, muerto: false, salto: 0,
-      mats: [],
+      mats: mod.mats,
     };
     if (cfg.vuela) r.pos.y += r.altVuelo;
     r.centro = () => this.centroDe(r);
     r.raiz.traverse((o) => {
       if (!o.isMesh) return;
       o.userData.robot = r;
-      if (o.material.isMeshStandardMaterial && !r.mats.includes(o.material)) { o.material = o.material.clone(); r.mats.push(o.material); }
     });
     r.raiz.position.copy(r.pos);
     r.raiz.scale.setScalar(0.01);
@@ -417,10 +266,10 @@ const Robots = {
       if (cfg.jefe) this.iaJefe(r, dt, dist);
 
       // pasos de gigante
-      r.fase += movido * (r.tipo === 'Arana' ? 3.2 : 4.2 / r.s);
+      r.fase += movido * (r.mod.spec.pasoFreq || 5) / Math.max(cfg.alto, 0.8) * 0.55;
       if (cfg.pasos) {
         r.pasoT += movido;
-        if (r.pasoT > 2.6 * r.s / 1.5) {
+        if (r.pasoT > cfg.alto * 0.45) {
           r.pasoT = 0;
           const dj = Math.hypot(pj.x - r.pos.x, pj.z - r.pos.z);
           Sfx.play('pasoGigante', dj); FX.sacudir(clamp(0.35 - dj * 0.012, 0, 0.35));
@@ -462,9 +311,9 @@ const Robots = {
     r.yaw = Math.atan2(-(c.x - r.pos.x), -(c.z - r.pos.z));
     r.raiz.position.copy(r.pos);
     r.raiz.rotation.y = r.yaw;
-    r.partes.torso.rotation.x = -0.25 + Math.sin(G.t * 2 + r.fase) * 0.05;
-    r.partes.torso.rotation.z = Math.sin(G.t * 1.3 + r.fase) * 0.12;
-    for (const h of r.partes.helices) h.rotation.y += dt * 40;
+    r.mod.cuerpo.rotation.x = -0.15 + Math.sin(G.t * 2 + r.fase) * 0.05;
+    r.mod.cuerpo.rotation.z = Math.sin(G.t * 1.3 + r.fase) * 0.12;
+    for (let i = 1; i <= 4; i++) r.segs['Helice' + i].g.rotation.y += dt * 40;
     r.cdDisparo -= dt;
     const dd = r.pos.distanceTo(c);
     if (r.cdDisparo <= 0 && !Jugador.muerto && dd < cfg.disparo.alcance && hayVista(r.pos, c)) {
@@ -479,8 +328,8 @@ const Robots = {
   iaJefe(r, dt, dist) {
     const pj = Jugador.centro(), k = r.furia ? 0.65 : 1;
     r.cdOrbes -= dt; r.cdPisoton -= dt; r.cdRayos -= dt; r.cdMisil -= dt;
-    r.partes.led.visible = Math.sin(G.t * (r.furia ? 18 : 6)) > 0;
-    r.partes.nucleo.scale.setScalar(1 + Math.sin(G.t * 5) * 0.2);
+    for (let i = 1; i <= 5; i++) { const led = r.partes['LED' + i]; if (led) led.visible = Math.sin(G.t * (r.furia ? 18 : 6) + i * 1.3) > -0.3; }
+    if (r.partes.Nucleo) r.partes.Nucleo.scale.setScalar(r.mod.spec.escala * ST * (1 + Math.sin(G.t * 5) * 0.15));
     if (Jugador.muerto || r.aparecer < 1) return;
     const boca = r.centro().add(V3(0, r.cfg.alto * 0.25, 0));
     // orbes en abanico
@@ -549,26 +398,32 @@ const Robots = {
   },
 
   animar(r, dt, rapidez) {
-    const p = r.partes, f = r.fase, mov = clamp(rapidez / Math.max(r.cfg.vel, 0.1), 0, 1);
-    if (p.piernas) {
-      const amp = 0.65 * mov;
-      p.piernas[0].rotation.x = Math.sin(f) * amp;
-      p.piernas[1].rotation.x = -Math.sin(f) * amp;
-      const atk = r.ataque > 0 || (r.cfg.jefe && r.ataque > 0);
-      const brazo = atk ? -1.7 + Math.sin(G.t * 25) * 0.2 : 0;
-      p.brazos[0].rotation.x = atk ? brazo : -Math.sin(f) * amp * 0.8;
-      p.brazos[1].rotation.x = atk ? brazo : Math.sin(f) * amp * 0.8;
-      p.torso.position.y = 0.95 * r.s + Math.abs(Math.cos(f)) * 0.04 * r.s * mov;
-      p.cabeza.rotation.y = Math.sin(G.t * 0.7 + r.fase) * 0.25;
-      if (r.tipo === 'Chatarra') p.torso.rotation.z = Math.sin(f * 0.5) * 0.12;
-    } else if (p.patas) {
-      p.patas.forEach((m, i) => { const s = i % 2 ? 1 : -1; m.rotation.x = Math.sin(f + i) * 0.35 * mov * s; m.rotation.y = Math.cos(f + i) * 0.25 * mov; });
-      p.torso.position.y = 0.75 + Math.abs(Math.sin(f * 2)) * 0.06 * mov;
-    } else if (p.torreta) {
-      const pj = Jugador.pos;
-      const yawT = Math.atan2(-(pj.x - r.pos.x), -(pj.z - r.pos.z)) - r.yaw;
-      p.torreta.rotation.y = damp(p.torreta.rotation.y, yawT, 3, dt);
-      p.torso.position.y = Math.sin(G.t * 30) * 0.015 * mov;
+    const sg = r.segs, f = r.fase, mov = clamp(rapidez / Math.max(r.cfg.vel, 0.1), 0, 1), anim = r.mod.spec.anim;
+    const atk = r.ataque > 0;
+    if (anim === 'ruedas') {
+      for (const n of ['RuedaIzq', 'RuedaDer', 'RuedaFIzq', 'RuedaFDer', 'RuedaTIzq', 'RuedaTDer']) if (r.partes[n]) r.partes[n].rotation.x -= rapidez * dt * 2.2;
+      r.mod.cuerpo.position.y = Math.abs(Math.sin(G.t * 22)) * 0.02 * mov;
+      r.mod.cuerpo.rotation.x = atk ? -0.15 : 0;
+    } else if (anim === 'arana') {
+      for (let i = 1; i <= 4; i++) {
+        const p = sg['Pata' + i]; if (!p) continue;
+        const fase = f * 1.6 + (i % 2) * Math.PI;
+        p.g.rotation.y = Math.sin(fase) * 0.35 * mov;
+        p.g.position.y = (p.abs[1] * r.mod.spec.escala * ST) + Math.max(0, Math.cos(fase)) * 0.12 * mov;
+      }
+      r.mod.cuerpo.position.y = Math.abs(Math.sin(f * 3.2)) * 0.05 * mov;
+    } else if (sg.PiernaIzq) {
+      const amp = 0.6 * mov;
+      sg.PiernaIzq.g.rotation.x = Math.sin(f) * amp;
+      sg.PiernaDer.g.rotation.x = -Math.sin(f) * amp;
+      const brazo = atk ? -1.6 + Math.sin(G.t * 24) * 0.15 : 0;
+      sg.BrazoIzq.g.rotation.x = atk ? brazo : -Math.sin(f) * amp * 0.7;
+      sg.BrazoDer.g.rotation.x = atk ? brazo : Math.sin(f) * amp * 0.7;
+      sg.BrazoIzq.g.rotation.z = -0.08; sg.BrazoDer.g.rotation.z = 0.08;
+      sg.Torso.g.rotation.z = Math.sin(f) * 0.04 * mov;
+      sg.Torso.g.rotation.x = r.tipo === 'Chatarra' ? 0.12 + Math.sin(G.t * 1.7) * 0.04 : 0;
+      sg.Cabeza.g.rotation.y = Math.sin(G.t * 0.7 + r.fase) * 0.25;
+      r.mod.cuerpo.position.y = Math.abs(Math.cos(f)) * 0.03 * r.cfg.alto * mov;
     }
   },
 
@@ -586,7 +441,8 @@ const Robots = {
 const Oleadas = {
   n: 0, fase: 'espera', cuenta: 10, cola: [], genT: 0, tipo: 'normal', MAX_VIVOS: 18, DESCANSO: 12,
 
-  iniciar() { this.n = 0; this.fase = 'descanso'; this.cuenta = 10; Clima.poner('dia'); },
+  PARA_FINAL: 6, // como OLEADAS_PARA_FINAL en Robots.server.luau
+  iniciar() { this.n = 0; this.proximaFinal = false; this.fase = 'descanso'; this.cuenta = 10; Clima.poner('dia'); },
 
   componer() {
     const n = this.n, cola = [];
@@ -595,7 +451,10 @@ const Oleadas = {
     if (n >= 5) pesos.push(['Dron', 2]);
     const total = pesos.reduce((s, p) => s + p[1], 0);
     const elegir = () => { let x = Math.random() * total; for (const [t, w] of pesos) { x -= w; if (x <= 0) return t; } return 'Seguidor'; };
-    if (this.tipo === 'jefe') {
+    if (this.tipo === 'final') {
+      cola.push('JefeFinal');
+      for (let i = 0; i < 8; i++) cola.push(pick(['Soldado', 'Chatarra', 'Dron']));
+    } else if (this.tipo === 'jefe') {
       cola.push('Jefe');
       for (let i = 0; i < 4 + n * 2; i++) cola.push(elegir());
       if (n >= 6) cola.push('Coloso');
@@ -610,12 +469,14 @@ const Oleadas = {
 
   empezar() {
     this.n++;
-    this.tipo = this.n % 3 === 0 ? 'jefe' : this.n % 4 === 0 ? 'drones' : 'normal';
+    this.tipo = this.proximaFinal ? 'final' : this.n % 3 === 0 ? 'jefe' : this.n % 4 === 0 ? 'drones' : 'normal';
+    this.proximaFinal = false;
     this.cola = this.componer();
     this.fase = 'oleada'; this.genT = 1.5;
     if (this.n === 1) { Mapa.quitarRejas(); HUD.feed('🔓 ¡Se abrieron las rejas!'); }
-    Clima.poner(this.tipo === 'jefe' ? 'tormenta' : this.tipo === 'drones' ? 'niebla' : 'noche');
-    if (this.tipo === 'jefe') { HUD.anuncio('⚠ OLEADA ' + this.n + ' ⚠', '¡Llega el MEGA-ARDUINO!', '#ff6a3c'); Sfx.play('jefe'); FX.sacudir(0.6); }
+    Clima.poner(this.tipo === 'final' ? 'final' : this.tipo === 'jefe' ? 'tormenta' : this.tipo === 'drones' ? 'niebla' : 'noche');
+    if (this.tipo === 'final') { HUD.anuncio('⚡ GRAN FINAL ⚡', 'ARDUNOL despierta a su robot gigante', '#c879ff'); Sfx.play('jefe'); FX.sacudir(1); }
+    else if (this.tipo === 'jefe') { HUD.anuncio('⚠ OLEADA ' + this.n + ' ⚠', '¡Llega el MEGA-ARDUINO!', '#ff6a3c'); Sfx.play('jefe'); FX.sacudir(0.6); }
     else if (this.tipo === 'drones') { HUD.anuncio('OLEADA ' + this.n, '¡Enjambre de drones!', '#9fe6a0'); Sfx.play('oleada'); }
     else { HUD.anuncio('OLEADA ' + this.n, this.n === 1 ? 'Los robots de ARDUNOL atacan' : this.cola.includes('Coloso') ? '¡Cuidado con el COLOSO!' : 'Más robots en camino', '#36c5ff'); Sfx.play('oleada'); }
   },
@@ -635,7 +496,7 @@ const Oleadas = {
   update(dt) {
     if (this.fase === 'descanso') {
       this.cuenta -= dt;
-      HUD.oleada(this.n === 0 ? 'PREPÁRATE' : 'DESCANSO', (this.n === 0 ? 'Las rejas se abren en ' : 'La oleada ' + (this.n + 1) + ' llega en ') + Math.ceil(this.cuenta) + ' s');
+      HUD.oleada(this.n === 0 ? 'PREPÁRATE' : 'DESCANSO', (this.n === 0 ? 'Las rejas se abren en ' : this.proximaFinal ? '⚡ La GRAN FINAL empieza en ' : 'La oleada ' + (this.n + 1) + ' llega en ') + Math.ceil(this.cuenta) + ' s');
       if (this.cuenta <= 0) this.empezar();
       return;
     }
@@ -644,15 +505,23 @@ const Oleadas = {
       const mult = 1 + (this.n - 1) * 0.06;
       if (this.cola.length && this.genT <= 0 && Robots.vivos.length < this.MAX_VIVOS) {
         const tipo = this.cola.shift();
-        const [x, z] = this.puntoAparicion(TIPOS[tipo].vuela);
+        const [x, z] = tipo === 'JefeFinal' ? [POS_ARDUNOL[0] * 0.5, POS_ARDUNOL[1] * 0.5] : this.puntoAparicion(TIPOS[tipo].vuela);
         const r = Robots.crear(tipo, x, z, mult);
         if (tipo === 'Coloso') HUD.anuncio('¡COLOSO!', 'Si te toca, caes. Mantén distancia', '#ff9a3c');
         this.genT = tipo === 'Jefe' ? 3 : rand(0.5, 1.1);
         if (tipo === 'Jefe') r.yaw = Math.atan2(x, z);
       }
       const quedan = this.cola.length + Robots.vivos.length;
-      HUD.oleada('OLEADA ' + this.n, '🤖 ' + quedan + ' robots restantes');
+      HUD.oleada(this.tipo === 'final' ? '⚡ GRAN FINAL ⚡' : 'OLEADA ' + this.n, '🤖 ' + quedan + ' robots restantes');
+      if (quedan === 0 && this.tipo === 'final') {
+        G.puntos += 300; HUD.puntos();
+        HUD.anuncio('🏆 ¡VICTORIA! 🏆', 'Recuperaste el ARDUINO SUPREMO (+300)', '#ffcf4a');
+        Sfx.play('recoger'); Jugador.curar(100);
+        this.fase = 'descanso'; this.cuenta = this.DESCANSO + 6; Clima.poner('dia');
+        return;
+      }
       if (quedan === 0) {
+        if (this.n === this.PARA_FINAL) this.proximaFinal = true;
         const bono = 20 * this.n;
         G.puntos += bono; HUD.puntos();
         HUD.anuncio('¡OLEADA SUPERADA!', '+' + bono + ' puntos de bonus', '#3ee08f');

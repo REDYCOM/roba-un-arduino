@@ -891,6 +891,9 @@ const CLIMAS = {
   tormenta: { top: '#12040a', hor: '#5a1c18', bot: '#1d0707', sol: [0.25, 0.4, 0.5], solCol: '#ff6a48', solI: 1.0, solTam: 0,
     hemiC: '#9a4040', hemiS: '#2a1410', hemiI: 0.45, niebla: '#3a1612', nieblaD: 0.0105, estrellas: 0, nubes: '#341a1a',
     agua: '#2a1210', lluvia: 1, farol: 3.2, expo: 1.05, cristal: 1.6 },
+  final: { top: '#0d0420', hor: '#4a1f6e', bot: '#140726', sol: [0.25, 0.45, 0.5], solCol: '#c58cff', solI: 1.1, solTam: 0.2,
+    hemiC: '#8a5ac8', hemiS: '#1c1028', hemiI: 0.45, niebla: '#2a1240', nieblaD: 0.008, estrellas: 0.6, nubes: '#2a1a40',
+    agua: '#1c0d33', lluvia: 0.6, farol: 3.2, expo: 1.05, cristal: 1.8 },
   niebla: { top: '#1f3326', hor: '#7d9a7e', bot: '#2d3d30', sol: [0.4, 0.5, 0.3], solCol: '#d6ffd0', solI: 0.9, solTam: 0.2,
     hemiC: '#a6cda8', hemiS: '#2d3a28', hemiI: 0.55, niebla: '#6e8a70', nieblaD: 0.02, estrellas: 0, nubes: '#8aa58c',
     agua: '#244c3a', lluvia: 0.35, farol: 2.2, expo: 1.0, cristal: 1.2 },
@@ -985,7 +988,7 @@ const Clima = {
     }
     // relámpagos en la tormenta
     this.flash = Math.max(0, this.flash - dt * 3.5);
-    if (this.nombre === 'tormenta' && this.t > 0.5) {
+    if ((this.nombre === 'tormenta' || this.nombre === 'final') && this.t > 0.5) {
       this.proxRayo -= dt;
       if (this.proxRayo <= 0) {
         this.proxRayo = rand(3, 8);
