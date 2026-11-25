@@ -183,7 +183,10 @@ const Armas = {
           if (t.robots.length) {
             const h = t.robots[0];
             Robots.danar(h.robot, a.dano * (h.critico ? 1.5 : 1), h.punto, h.critico);
-          } else if (t.pared) { FX.chispazo(fin, a.color, n > 1 ? 3 : 6, 5, 0.12); Sfx.play('impacto', fin.distanceTo(o)); }
+          } else if (t.pared) {
+            FX.chispazo(fin, a.color, n > 1 ? 3 : 6, 5, 0.12); Sfx.play('impacto', fin.distanceTo(o));
+            if (G.ultimaCaja && G.ultimaCaja.destr) Destruibles.danar(G.ultimaCaja.destr, a.dano, fin);
+          }
         }
         FX.luz(boca, a.color, 6, 6, 0.06);
         FX.chispazo(boca, a.color, n > 1 ? 10 : 4, 3, 0.05);
@@ -198,7 +201,7 @@ const Armas = {
         FX.segmento(boca, fin, 0.09, a.color, 0.22, 3);
         FX.segmento(boca, fin, 0.03, '#ffffff', 0.16, 3);
         for (const h of t.robots) Robots.danar(h.robot, a.dano * (h.critico ? 1.5 : 1), h.punto, h.critico);
-        if (t.pared) { FX.chispazo(fin, a.color, 14, 6, 0.15); FX.luz(fin, a.color, 15, 8, 0.2); }
+        if (t.pared) { FX.chispazo(fin, a.color, 14, 6, 0.15); FX.luz(fin, a.color, 15, 8, 0.2); if (G.ultimaCaja && G.ultimaCaja.destr) Destruibles.danar(G.ultimaCaja.destr, a.dano, fin); }
         FX.luz(boca, a.color, 10, 6, 0.15);
         this.retroceso = 0.6;
         break;
@@ -284,6 +287,7 @@ const Armas = {
 
   explotar(pos, a) {
     FX.explosion(pos, a.radio, a.tipo === 'granada' ? '#5ef0ff' : '#ff9a3c');
+    Destruibles.explosion(pos, a.radio + 0.5);
     for (const r of [...Robots.vivos]) {
       const d = r.centro().distanceTo(pos) - r.radio * 0.6;
       if (d < a.radio) Robots.danar(r, a.dano * (1 - 0.5 * clamp(d / a.radio, 0, 1)), r.centro(), false);
@@ -331,6 +335,8 @@ const Armas = {
   },
 
   update(dt) {
+    // arriba de la ametralladora no se usan las armas de mano
+    if (Torretas.montada) { this.updateProyectiles(dt); return; }
     // cambiar de arma
     for (let i = 0; i < this.lista.length; i++) if (Input.pulso('Digit' + (i + 1))) this.elegir(i);
     if (Input.rueda) {

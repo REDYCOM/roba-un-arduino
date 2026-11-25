@@ -135,6 +135,7 @@ function techoSobre(pos, radio, alto) {
 // Rayo contra cajas (slab test). Devuelve distancia o Infinity
 function rayoCajas(o, d, maxD) {
   let mejor = maxD;
+  G.ultimaCaja = null;
   for (const c of G.cajas) {
     if (c.sinBala) continue;
     let tmin = 0, tmax = mejor;
@@ -149,7 +150,7 @@ function rayoCajas(o, d, maxD) {
         if (tmin > tmax) { ok = false; break; }
       }
     }
-    if (ok && tmin < mejor) mejor = tmin;
+    if (ok && tmin < mejor) { mejor = tmin; G.ultimaCaja = c; }
   }
   return mejor;
 }
@@ -176,6 +177,7 @@ function rayoTerreno(o, d, maxD) {
 function rayoMundo(o, d, maxD) {
   const a = rayoCajas(o, d, maxD);
   const b = rayoTerreno(o, d, Math.min(a, maxD));
+  if (b < a) G.ultimaCaja = null;
   return Math.min(a, b);
 }
 

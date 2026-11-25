@@ -6,7 +6,7 @@ const Jugador = {
   radio: 0.42, alto: 1.75, ojos: 1.62,
   enSuelo: false, vida: 100, vidaMax: 100, muerto: false, cuentaRevivir: 0,
   invulnerable: 0, bob: 0, bobAmp: 0, pasoT: 0, sens: 0.0022, fov: 75,
-  ultimoDano: 0, aterrizaje: 0,
+  ultimoDano: 0, aterrizaje: 0, empuje: V3(),
 
   revivir() {
     const eq = EQUIPOS[MI_EQUIPO];
@@ -27,7 +27,15 @@ const Jugador = {
     this.ultimoDano = G.t;
     Sfx.play('dano');
     HUD.dano(cant, origen);
-    FX.sacudir(Math.min(0.5, cant / 60));
+    FX.sacudir(Math.min(0.6, 0.15 + cant / 60));
+    // retroceso: el golpe te empuja lejos del enemigo
+    if (origen) {
+      const dx = this.pos.x - origen.x, dz = this.pos.z - origen.z, L = Math.hypot(dx, dz) || 1;
+      const k = clamp(6 + cant * 0.3, 6, 18);
+      this.empuje.set((dx / L) * k, 0, (dz / L) * k);
+      this.vel.y = Math.max(this.vel.y, cant >= 25 ? 6 : 4);
+      this.enSuelo = false;
+    }
     if (this.vida <= 0) {
       this.vida = 0; this.muerto = true; this.cuentaRevivir = 4;
       HUD.muerte(true, tipo);
@@ -45,6 +53,7 @@ const Jugador = {
       return;
     }
     this.invulnerable = Math.max(0, this.invulnerable - dt);
+    this.empuje.multiplyScalar(Math.exp(-5 * dt));
     // regeneración lenta si no te pegan por 6 s
     if (G.t - this.ultimoDano > 6) this.curar(dt * 6);
 
@@ -81,7 +90,7 @@ const Jugador = {
     const h = dt / pasos;
     const eraSuelo = this.enSuelo, vyAntes = this.vel.y;
     for (let i = 0; i < pasos; i++) {
-      this.pos.x += this.vel.x * h; this.pos.z += this.vel.z * h;
+      this.pos.x += (this.vel.x + this.empuje.x) * h; this.pos.z += (this.vel.z + this.empuje.z) * h;
       empujarFuera(this.pos, this.radio, this.alto);
       // límite de la isla (agua profunda)
       const r = Math.hypot(this.pos.x, this.pos.z);

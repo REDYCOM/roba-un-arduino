@@ -81,7 +81,8 @@ window.iniciarJuego = function () {
       G.t += dt;
       G.uTiempo.value = G.t;
       if (Input.pulso('KeyQ')) { G.calidad = G.calidad ? 0 : 1; aplicarCalidad(); }
-      Jugador.update(dt);
+      if (Torretas.montada) Torretas.updateMontada(dt); else Jugador.update(dt);
+      Torretas.update(dt);
       Armas.update(dt);
       Oleadas.update(dt);
       Robots.update(dt);
@@ -104,7 +105,7 @@ window.iniciarJuego = function () {
       Clima.update(dt, scene);
       Agua.update(dt);
     }
-    Armas.soporte.visible = G.estado !== 'menu';
+    Armas.soporte.visible = G.estado !== 'menu' && !Torretas.montada;
     Input.fin();
     composer.render();
   }

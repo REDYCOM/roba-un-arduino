@@ -14,6 +14,7 @@
 <!-- ======================= HUD ======================= -->
 <div id="hud" class="oculto">
   <div id="vinieta"></div>
+  <div id="flashRojo"></div>
   <div id="mira"><span></span><span></span><span></span><span></span></div>
   <div id="hitmarker"></div>
 
@@ -48,6 +49,7 @@
   <div id="hotbar"></div>
 
   <div id="anuncio"></div>
+  <div id="aviso" class="oculto">Pulsa <kbd>E</kbd> para usar la ametralladora</div>
   <div id="numeros"></div>
 </div>
 
@@ -66,6 +68,7 @@
       <div><kbd>1-6</kbd> / <kbd>Rueda</kbd> armas</div>
       <div><kbd>Esc</kbd> pausa</div>
       <div><kbd>Q</kbd> calidad</div>
+      <div><kbd>E</kbd> ametralladora</div>
     </div>
     <button id="btnJugar" disabled>Cargando…</button>
     <div class="nota">Las cajas que sueltan los robots grandes dan armas nuevas.</div>
@@ -83,6 +86,15 @@
   <div class="tarjeta chica">
     <div class="logo chico">¡TE DERRIBARON!</div>
     <p>Reapareces en tu base en <b id="muerteCuenta">4</b>…</p>
+  </div>
+</div>
+
+<div id="victoria" class="pantalla oculto">
+  <div class="tarjeta">
+    <div class="logo">¡GANASTE! <span>🏆</span></div>
+    <p class="historia">Derrotaste a <b>ARDUNOL</b> y recuperaste el <b>ARDUINO SUPREMO</b>. ¡La isla vuelve a ser libre!</p>
+    <div class="controles"><div>⭐ Puntos: <b id="vicPuntos">0</b></div><div>🤖 Robots: <b id="vicBajas">0</b></div><div>⏱ Tiempo: <b id="vicTiempo">0:00</b></div></div>
+    <button onclick="location.reload()">Jugar otra vez</button>
   </div>
 </div>
 
@@ -119,7 +131,7 @@
     window.THREE = THREE;
     window.ADD = { mergeGeometries, EffectComposer, RenderPass, UnrealBloomPass, OutputPass };
     const archivos = ['datos/base-equipo.js', 'js/core.js', 'js/audio.js', 'js/world.js', 'js/fx.js', 'js/player.js',
-                      'js/weapons.js', 'js/modelos-robots.js', 'js/robots.js', 'js/hud.js', 'js/main.js'];
+                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/robots.js', 'js/hud.js', 'js/main.js'];
     for (const f of archivos) {
       await new Promise((ok, mal) => {
         const s = document.createElement('script');

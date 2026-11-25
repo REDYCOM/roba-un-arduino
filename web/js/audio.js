@@ -71,6 +71,7 @@ const Sfx = {
       case 'trampolin': this.tono(200, 0.4, 'sine', 0.2, 900); break;
       case 'paso': this.ruido(0.05, 0.04, 600, 'lowpass'); break;
       case 'pasoGigante': this.tono(45, 0.4, 'sine', 0.5 * v, 30); this.ruido(0.3, 0.3 * v, 300, 'lowpass'); break;
+      case 'metralla': this.ruido(0.07, 0.22 * v, 2600, 'lowpass', 500); this.tono(160, 0.06, 'square', 0.07 * v, 70); break;
       case 'sinMunicion': this.tono(200, 0.05, 'square', 0.05); break;
     }
   },

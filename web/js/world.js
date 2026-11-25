@@ -254,6 +254,125 @@ const Obra = {
 };
 
 // ---------------------------------------------------------------------
+//  DESTRUIBLES: árboles que caen, cajas que se astillan, barriles que explotan
+//  Los rompen los robots grandes al pasar y todas las explosiones.
+// ---------------------------------------------------------------------
+const Destruibles = {
+  lista: [], geoTronco: null, matTronco: null, cero: new THREE.Matrix4().makeScale(0, 0, 0),
+  geoCaja: new THREE.BoxGeometry(1, 1, 1), geoBarril: new THREE.CylinderGeometry(0.55, 0.55, 1.4, 14),
+  mats: {},
+  mat(c) { return this.mats[c] || (this.mats[c] = new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 })); },
+
+  registrar(d, caja) { d.vivo = true; d.caja = caja; if (caja) caja.destr = d; this.lista.push(d); return d; },
+
+  arbol(p, s, caja, inst, matriz, geoCopa, color) {
+    this.registrar({ tipo: 'arbol', x: p.x, y: p.y, z: p.z, r: 0.5 * s, vida: 80, inst, matriz, geoCopa, color }, caja);
+  },
+  cajaMadera(scene, x, y, z, t, color) {
+    const m = new THREE.Mesh(this.geoCaja, this.mat(color));
+    m.scale.setScalar(t); m.position.set(x, y + t / 2, z); m.rotation.y = hash2(x, z) * 0.6;
+    m.castShadow = m.receiveShadow = true; scene.add(m);
+    const caja = agregarCaja(x - t / 2, y, z - t / 2, x + t / 2, y + t, z + t / 2);
+    this.registrar({ tipo: 'caja', x, y: y + t / 2, z, r: t * 0.6, vida: 50, m, color }, caja);
+  },
+  barril(scene, x, y, z, explosivo) {
+    const g = new THREE.Group(); g.position.set(x, y, z);
+    const cuerpo = new THREE.Mesh(this.geoBarril, this.mat(explosivo ? '#c0392b' : '#2e86de')); cuerpo.position.y = 0.7;
+    const tapa = new THREE.Mesh(new THREE.CylinderGeometry(0.57, 0.57, 0.1, 14), this.mat('#222')); tapa.position.y = 1.42;
+    g.add(cuerpo, tapa);
+    if (explosivo) {
+      const franja = new THREE.Mesh(new THREE.CylinderGeometry(0.565, 0.565, 0.16, 14), new THREE.MeshBasicMaterial({ color: col('#ffcf4a').multiplyScalar(1.6) }));
+      franja.position.y = 0.75; g.add(franja);
+    }
+    g.traverse((o) => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+    scene.add(g);
+    const caja = agregarCaja(x - 0.5, y, z - 0.5, x + 0.5, y + 1.45, z + 0.5);
+    this.registrar({ tipo: 'barril', x, y: y + 0.7, z, r: 0.6, vida: explosivo ? 30 : 60, m: g, explosivo }, caja);
+  },
+
+  danar(d, cant, desde) { if (!d.vivo) return; d.vida -= cant; if (d.vida <= 0) this.romper(d, desde); },
+
+  romper(d, desde) {
+    if (!d.vivo) return;
+    d.vivo = false;
+    const i = G.cajas.indexOf(d.caja); if (i >= 0) G.cajas.splice(i, 1);
+    const p = V3(d.x, d.y, d.z);
+    let dx = d.x - (desde ? desde.x : d.x - 1), dz = d.z - (desde ? desde.z : d.z);
+    const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+    const dist = p.distanceTo(Jugador.pos);
+    if (d.tipo === 'arbol') this.caerArbol(d, dx, dz, dist);
+    else if (d.tipo === 'caja') {
+      d.m.parent.remove(d.m);
+      Sfx.play('impacto', dist); Sfx.play('explosionChica', dist * 2);
+      for (let k = 0; k < 7; k++) this.astilla(p, d.color, 0.25 + Math.random() * 0.4, dx, dz);
+      FX.humo.emitir(p.x, p.y, p.z, 0, 1, 0, new THREE.Color(0.55, 0.45, 0.33), 1.2, 1, { crece: 2, a: 0.5 });
+    } else if (d.tipo === 'barril') {
+      d.m.parent.remove(d.m);
+      if (d.explosivo) {
+        // ¡BUM! daña a los robots cercanos y también te puede alcanzar a ti
+        setTimeout(() => {
+          FX.explosion(p, 3.6, '#ff7a2a');
+          for (const r of [...Robots.vivos]) if (r.centro().distanceTo(p) < 5.5 + r.radio * 0.5) Robots.danar(r, 140, r.centro(), false);
+          if (Jugador.centro().distanceTo(p) < 4.5) Jugador.danar(25, p, 'barril');
+          this.explosion(p, 4.5);
+        }, 90);
+      } else {
+        Sfx.play('impacto', dist);
+        for (let k = 0; k < 4; k++) this.astilla(p, '#2e86de', 0.35, dx, dz);
+      }
+    }
+  },
+
+  astilla(p, color, t, dx, dz) {
+    const m = new THREE.Mesh(this.geoCaja, this.mat(color));
+    m.scale.set(t, t * 0.3, t * 1.6); m.position.copy(p); m.castShadow = true;
+    G.scene.add(m);
+    Robots.restos.push({ m, vel: V3(dx * 5 + rand(-4, 4), rand(4, 9), dz * 5 + rand(-4, 4)), giro: V3(rand(-9, 9), rand(-9, 9), rand(-9, 9)), vida: rand(1.8, 3), s0: m.scale.clone() });
+  },
+
+  caerArbol(d, dx, dz, dist) {
+    for (const [im, k] of d.inst) { im.setMatrixAt(k, this.cero); im.instanceMatrix.needsUpdate = true; }
+    // copia del árbol que se cae hacia el lado contrario del golpe
+    const g = new THREE.Group();
+    const pos = V3(), q = new THREE.Quaternion(), esc = V3();
+    d.matriz.decompose(pos, q, esc);
+    const tronco = new THREE.Mesh(this.geoTronco, this.matTronco);
+    const matC = new THREE.MeshStandardMaterial({ color: d.color, roughness: 0.9, flatShading: true });
+    const copa = new THREE.Mesh(d.geoCopa, matC);
+    for (const m of [tronco, copa]) { m.quaternion.copy(q); m.scale.copy(esc); m.castShadow = true; g.add(m); }
+    g.position.copy(pos);
+    G.scene.add(g);
+    const eje = V3(dz, 0, -dx).normalize();
+    const t0 = G.t;
+    let golpeo = false;
+    const f = (dt, t) => {
+      const e = t - t0;
+      const ang = Math.min(Math.PI / 2 - 0.05, e * e * 3.2);
+      g.quaternion.setFromAxisAngle(eje, ang);
+      if (!golpeo && ang >= Math.PI / 2 - 0.06) {
+        golpeo = true;
+        const punta = pos.clone().add(V3(dx * 3.5 * esc.x, 0.5, dz * 3.5 * esc.x));
+        for (let k = 0; k < 22; k++) FX.chispas.emitir(punta.x + rand(-1.5, 1.5), punta.y + rand(0, 1.5), punta.z + rand(-1.5, 1.5), rand(-2, 2), rand(1, 4), rand(-2, 2), d.color, rand(0.12, 0.22), rand(0.8, 1.6), { g: -6, roce: 1.5, suelo: Terreno.altura(punta.x, punta.z) });
+        Sfx.play('pasoGigante', dist);
+      }
+      if (e > 3) g.position.y -= dt * 1.5;
+      if (e > 4.5) { G.scene.remove(g); matC.dispose(); G.anim.splice(G.anim.indexOf(f), 1); }
+    };
+    G.anim.push(f);
+    Sfx.play('impacto', dist);
+  },
+
+  romperCerca(pos, rad, desde) {
+    for (const d of this.lista) {
+      if (!d.vivo) continue;
+      if (Math.abs(d.x - pos.x) > rad + 1 || Math.abs(d.z - pos.z) > rad + 1) continue;
+      if (Math.hypot(d.x - pos.x, d.z - pos.z) < rad + d.r) this.romper(d, desde || pos);
+    }
+  },
+  explosion(pos, radio) { this.romperCerca(pos, radio, pos); },
+};
+
+// ---------------------------------------------------------------------
 //  MAPA
 // ---------------------------------------------------------------------
 const Mapa = {
@@ -273,7 +392,7 @@ const Mapa = {
     this.bunkers();
     this.trampolines();
     this.faroles();
-    this.coberturas();
+    this.coberturas(scene);
     Obra.construir(scene);
     for (const m of this.pendientes) scene.add(m);
     this.vegetacion(scene);
@@ -385,9 +504,108 @@ const Mapa = {
     Obra.bola(ex, SUELO + 2.55, ez, 0.42, '#c7cfdf', { tipo: 'metal' });
     Obra.bola(ex, SUELO + 3.05, ez, 0.12, eq.color, { tipo: 'brillo', intens: 3, det: 0 });
     eq.bandera = baseAMundo(eq, -15, -19);
+    this.decorarBase(eq, idx, giro, y0);
+    // ametralladora fija al costado de la base, mirando hacia la plaza
+    { const [tx, tz] = baseAMundo(eq, 17, -25); eq.torreta = Torretas.crear(eq, tx, tz, eq.giro, this.pendientes); }
     // aparición: el TeamSpawn de Roblox, mirando hacia la puerta
     const [sx, sz] = baseAMundo(eq, 0, 0);
     eq.spawn = { x: sx, z: sz, y: y0, yaw: eq.giro };
+  },
+
+  // ---------- Decoración de la base (alrededor de la celda de Roblox) ----------
+  // Coordenadas locales en studs: y = 0 es el piso de la celda; la puerta mira a -z (hacia la plaza).
+  decorarBase(eq, idx, giro, y0) {
+    const S = ESC_ROBLOX, C = eq.color;
+    const cOsc = '#' + col(C).multiplyScalar(0.55).getHexString();
+    const pieza = (sx, sy, sz, lx, ly, lz, color, o = {}) => {
+      let g = new THREE.BoxGeometry(sx, sy, sz);
+      if (o.rotX) g.rotateX(o.rotX);
+      if (o.rotZ) g.rotateZ(o.rotZ);
+      g.translate(lx, ly + sy / 2, lz);
+      g.scale(S, S, S); g.applyMatrix4(giro); g.translate(eq.x, y0, eq.z);
+      Obra.agregar(g, color, o.tipo || 'std', o.intens || 1);
+      if (o.solido) { g.computeBoundingBox(); const b = g.boundingBox; agregarCaja(b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z); }
+    };
+    const mundo = (lx, ly, lz) => { const [x, z] = baseAMundo(eq, lx, lz); return [x, y0 + ly * S, z]; };
+    const cx = -0.6, cz = -0.9; // centro de la celda
+
+    // 1) plataforma de piedra con borde de luz del equipo
+    pieza(37, 1.2, 37, cx, -1.2, cz, '#5d6068', { solido: true });
+    pieza(37.4, 0.25, 37.4, cx, -0.05, cz, '#787b84');
+    for (const s of [-1, 1]) {
+      pieza(37.6, 0.18, 0.3, cx, 0.12, cz + s * 18.7, C, { tipo: 'brillo', intens: 1.7 });
+      pieza(0.3, 0.18, 37.6, cx + s * 18.7, 0.12, cz, C, { tipo: 'brillo', intens: 1.7 });
+    }
+
+    // 2) pilares en las esquinas con luz arriba
+    for (const sxp of [-1, 1]) for (const szp of [-1, 1]) {
+      const px = cx + sxp * 14.4, pz = cz + szp * 14.4;
+      pieza(2.8, 18, 2.8, px, 0, pz, '#343842', { solido: true, tipo: 'metal' });
+      pieza(3.3, 0.8, 3.3, px, 0, pz, '#23262d');
+      pieza(0.35, 15, 0.35, px + sxp * 1.45, 1.5, pz + szp * 1.45, C, { tipo: 'brillo', intens: 2.2 });
+      pieza(3.2, 0.7, 3.2, px, 18, pz, C, { tipo: 'brillo', intens: 2.4 });
+      pieza(2.2, 1.2, 2.2, px, 18.7, pz, '#2b2f38', { tipo: 'metal' });
+    }
+
+    // 3) parapeto del techo con el color del equipo + remate blanco
+    pieza(27.6, 2.2, 0.9, cx, 14.9, cz - 13.35, C); pieza(27.6, 2.2, 0.9, cx, 14.9, cz + 13.35, C);
+    pieza(0.9, 2.2, 27.6, cx - 13.35, 14.9, cz, C); pieza(0.9, 2.2, 27.6, cx + 13.35, 14.9, cz, C);
+    pieza(28, 0.35, 1.2, cx, 17.1, cz - 13.35, '#eef1f5'); pieza(28, 0.35, 1.2, cx, 17.1, cz + 13.35, '#eef1f5');
+    pieza(1.2, 0.35, 28, cx - 13.35, 17.1, cz, '#eef1f5'); pieza(1.2, 0.35, 28, cx + 13.35, 17.1, cz, '#eef1f5');
+
+    // 4) línea de luz bajo el techo, todo alrededor
+    pieza(27.8, 0.35, 0.3, cx, 13.0, cz - 13.75, C, { tipo: 'brillo', intens: 2 });
+    pieza(27.8, 0.35, 0.3, cx, 13.0, cz + 13.75, C, { tipo: 'brillo', intens: 2 });
+    pieza(0.3, 0.35, 27.8, cx - 13.75, 13.0, cz, C, { tipo: 'brillo', intens: 2 });
+    pieza(0.3, 0.35, 27.8, cx + 13.75, 13.0, cz, C, { tipo: 'brillo', intens: 2 });
+
+    // 5) marco de luz en la puerta (donde están las rejas)
+    pieza(0.4, 13.4, 0.4, -13.25, 0, -14.6, C, { tipo: 'brillo', intens: 2.6 });
+    pieza(0.4, 13.4, 0.4, -4.35, 0, -14.6, C, { tipo: 'brillo', intens: 2.6 });
+    pieza(9.3, 0.4, 0.4, -8.8, 13.2, -14.6, C, { tipo: 'brillo', intens: 2.6 });
+    // alfombra de entrada
+    pieza(8, 0.08, 6, -8.8, 0.01, -17.5, cOsc);
+
+    // 6) ventanas iluminadas en los costados
+    for (const s of [-1, 1]) for (const wz of [-8, 2.5]) {
+      const wx = s < 0 ? -14.15 : 13.05;
+      pieza(0.25, 1.6, 6.5, wx, 7.4, wz, '#ffd98a', { tipo: 'farol' });
+      pieza(0.35, 0.35, 7.1, wx, 7.1, wz, '#2a2d35');
+    }
+
+    // 7) techo: paneles solares, antena con luz y plato satelital
+    for (let i = 0; i < 3; i++) pieza(5.5, 0.3, 3.6, cx - 6 + i * 6.2, 15.6, cz + 6, '#1b3466', { tipo: 'metal', rotX: -0.35 });
+    pieza(0.35, 9, 0.35, cx + 9, 14.9, cz - 7, '#c9cfd8', { tipo: 'metal' });
+    pieza(0.9, 0.9, 0.9, cx + 9, 23.9, cz - 7, '#ff3030', { tipo: 'brillo', intens: 3 });
+    { const [x, y, z] = mundo(cx - 8, 14.9, cz - 6);
+      Obra.cil(x, y, z, 0.15, 0.25, 1.4, '#9aa2ad', { tipo: 'metal' });
+      Obra.cil(x, y + 1.4, z, 1.1, 0.25, 0.35, '#e6e9ee', { seg: 16 }); }
+
+    // 8) letrero del equipo sobre el techo (mira hacia la plaza)
+    pieza(10.5, 7, 0.6, cx, 17.4, cz - 13.1, '#23262d', { tipo: 'metal' });
+    pieza(0.6, 3, 0.6, cx - 4, 14.9, cz - 13.1, '#23262d'); pieza(0.6, 3, 0.6, cx + 4, 14.9, cz - 13.1, '#23262d');
+    const cv = document.createElement('canvas'); cv.width = 512; cv.height = 340;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#10131a'; c.fillRect(0, 0, 512, 340);
+    c.strokeStyle = C; c.lineWidth = 14; c.strokeRect(10, 10, 492, 320);
+    c.fillStyle = C; c.beginPath(); c.arc(256, 150, 95, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#ffffff'; c.font = 'bold 150px "Baloo 2", system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(String(idx + 1), 256, 160);
+    c.font = 'bold 56px "Baloo 2", system-ui, sans-serif'; c.fillText('EQUIPO ' + (idx + 1), 256, 295);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    const cartel = new THREE.Mesh(new THREE.PlaneGeometry(10 * S, 6.6 * S), new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(1.5, 1.5, 1.5) }));
+    const [lx, ly, lz] = mundo(cx, 17.4 + 3.5, cz - 13.45);
+    cartel.position.set(lx, ly, lz);
+    cartel.rotation.y = eq.giro + Math.PI;
+    this.pendientes.push(cartel);
+
+    // 9) maceteros con arbustos junto a la puerta
+    for (const lxp of [-1.8, -15.8]) {
+      pieza(2.8, 1.6, 2.8, lxp, 0, -16.8, '#8a6a4a', { solido: true });
+      const [x, y, z] = mundo(lxp, 1.6, -16.8);
+      Obra.bola(x, y + 0.45, z, 0.75, '#3f9a45', { det: 1 });
+      Obra.bola(x + 0.2, y + 0.8, z - 0.1, 0.45, '#56b04f', { det: 1 });
+    }
   },
 
   quitarRejas() {
@@ -555,16 +773,16 @@ const Mapa = {
     }
   },
 
-  coberturas() {
-    // pilas de cajas y barriles repartidas por el mapa
-    for (const [gx, gz] of this.lugares(14, 30, 105, 3, 23)) {
+  coberturas(scene) {
+    // pilas de cajas y barriles (se rompen; los barriles rojos explotan)
+    for (const [gx, gz] of this.lugares(16, 30, 105, 3, 23)) {
       const y = Terreno.altura(gx, gz);
       if (y < 0.8) continue;
-      Obra.caja(gx, y - 0.1, gz, 1.8, 1.8, 1.8, this.madera);
-      Obra.caja(gx + 1.9, y - 0.1, gz + 0.2, 1.6, 1.6, 1.6, this.maderaOsc);
-      if (hash2(gx, gz) > 0.4) Obra.caja(gx + 0.3, y + 1.7, gz, 1.4, 1.4, 1.4, this.madera);
-      Obra.cil(gx - 1.6, y - 0.1, gz + 1.2, 0.55, 0.55, 1.4, hash2(gz, gx) > 0.5 ? '#c0392b' : '#2e86de', { solido: true, seg: 10 });
-      Obra.cil(gx - 1.6, y + 1.3, gz + 1.2, 0.57, 0.57, 0.1, '#222', { seg: 10 });
+      Destruibles.cajaMadera(scene, gx, y - 0.1, gz, 1.8, this.madera);
+      Destruibles.cajaMadera(scene, gx + 1.9, y - 0.1, gz + 0.2, 1.6, this.maderaOsc);
+      if (hash2(gx, gz) > 0.4) Destruibles.cajaMadera(scene, gx + 0.3, y + 1.7, gz, 1.4, this.madera);
+      Destruibles.barril(scene, gx - 1.6, y - 0.1, gz + 1.2, hash2(gz, gx) > 0.35);
+      if (hash2(gx + 3, gz) > 0.6) Destruibles.barril(scene, gx - 2.5, y - 0.1, gz + 0.1, true);
     }
   },
 
@@ -643,8 +861,10 @@ const Mapa = {
       const s = rand(0.85, 1.45);
       dummy.position.set(p.x, p.y - 0.1, p.z); dummy.rotation.set(0, rand(0, TAU), 0); dummy.scale.set(s, s, s);
       dummy.updateMatrix(); tr.setMatrixAt(i, dummy.matrix); cp.setMatrixAt(i, dummy.matrix);
-      cp.setColorAt(i, i % 13 === 0 ? verdes[4] : pick(verdes.filter((v, k) => k !== 4)));
-      agregarCaja(p.x - 0.35 * s, p.y, p.z - 0.35 * s, p.x + 0.35 * s, p.y + 2.6 * s, p.z + 0.35 * s);
+      const colorCopa = i % 13 === 0 ? verdes[4] : pick(verdes.filter((v, k) => k !== 4));
+      cp.setColorAt(i, colorCopa);
+      const caja = agregarCaja(p.x - 0.35 * s, p.y, p.z - 0.35 * s, p.x + 0.35 * s, p.y + 2.6 * s, p.z + 0.35 * s);
+      Destruibles.arbol(p, s, caja, [[tr, i], [cp, i]], dummy.matrix.clone(), copaG, colorCopa);
     });
     // pino: conos apilados
     const pinoG = ADD.mergeGeometries([
@@ -658,10 +878,13 @@ const Mapa = {
     pinos.forEach((p, i) => {
       const s = rand(0.9, 1.6), k = redondos.length + i;
       dummy.position.set(p.x, p.y - 0.1, p.z); dummy.rotation.set(0, rand(0, TAU), 0); dummy.scale.set(s, s * rand(0.9, 1.2), s);
-      dummy.updateMatrix(); tr.setMatrixAt(k, dummy.matrix); pn.setMatrixAt(i, dummy.matrix); pn.setColorAt(i, pick(verdesPino));
-      agregarCaja(p.x - 0.35 * s, p.y, p.z - 0.35 * s, p.x + 0.35 * s, p.y + 2.6 * s, p.z + 0.35 * s);
+      const colorPino = pick(verdesPino);
+      dummy.updateMatrix(); tr.setMatrixAt(k, dummy.matrix); pn.setMatrixAt(i, dummy.matrix); pn.setColorAt(i, colorPino);
+      const caja = agregarCaja(p.x - 0.35 * s, p.y, p.z - 0.35 * s, p.x + 0.35 * s, p.y + 2.6 * s, p.z + 0.35 * s);
+      Destruibles.arbol(p, s, caja, [[tr, k], [pn, i]], dummy.matrix.clone(), pinoG, colorPino);
     });
     for (const m of [tr, cp, pn]) { m.castShadow = true; m.receiveShadow = true; scene.add(m); }
+    Destruibles.geoTronco = troncoG; Destruibles.matTronco = matTronco;
 
     // rocas
     const nR = 90, rocaG = new THREE.DodecahedronGeometry(1, 0);
@@ -891,6 +1114,9 @@ const CLIMAS = {
   tormenta: { top: '#12040a', hor: '#5a1c18', bot: '#1d0707', sol: [0.25, 0.4, 0.5], solCol: '#ff6a48', solI: 1.0, solTam: 0,
     hemiC: '#9a4040', hemiS: '#2a1410', hemiI: 0.45, niebla: '#3a1612', nieblaD: 0.0105, estrellas: 0, nubes: '#341a1a',
     agua: '#2a1210', lluvia: 1, farol: 3.2, expo: 1.05, cristal: 1.6 },
+  desatado: { top: '#0a0000', hor: '#5e0a14', bot: '#120002', sol: [0.2, 0.35, 0.5], solCol: '#ff3040', solI: 1.1, solTam: 0.1,
+    hemiC: '#b03040', hemiS: '#200608', hemiI: 0.45, niebla: '#300610', nieblaD: 0.0095, estrellas: 0, nubes: '#2a0a0e',
+    agua: '#2a0508', lluvia: 1, farol: 3.4, expo: 1.05, cristal: 1.8 },
   final: { top: '#0d0420', hor: '#4a1f6e', bot: '#140726', sol: [0.25, 0.45, 0.5], solCol: '#c58cff', solI: 1.1, solTam: 0.2,
     hemiC: '#8a5ac8', hemiS: '#1c1028', hemiI: 0.45, niebla: '#2a1240', nieblaD: 0.008, estrellas: 0.6, nubes: '#2a1a40',
     agua: '#1c0d33', lluvia: 0.6, farol: 3.2, expo: 1.05, cristal: 1.8 },
@@ -988,7 +1214,7 @@ const Clima = {
     }
     // relámpagos en la tormenta
     this.flash = Math.max(0, this.flash - dt * 3.5);
-    if ((this.nombre === 'tormenta' || this.nombre === 'final') && this.t > 0.5) {
+    if ((this.nombre === 'tormenta' || this.nombre === 'final' || this.nombre === 'desatado') && this.t > 0.5) {
       this.proxRayo -= dt;
       if (this.proxRayo <= 0) {
         this.proxRayo = rand(3, 8);
@@ -1033,6 +1259,7 @@ const Clima = {
   },
   relampago(dst, fuerte = false) {
     this.flash = fuerte ? 1.4 : 1;
+    Destruibles.explosion(dst, 2.5);
     FX.rayo(V3(dst.x + rand(-20, 20), 120, dst.z + rand(-20, 20)), dst, fuerte);
     const dist = dst.distanceTo(Jugador.pos);
     setTimeout(() => Sfx.play('trueno', dist * 0.4), Math.min(dist * 6, 1800));

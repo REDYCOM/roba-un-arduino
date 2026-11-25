@@ -105,7 +105,23 @@ const HUD = {
     if (this.nums.length > 30) { const n = this.nums.shift(); n.d.remove(); }
   },
 
-  dano(cant) { this.vinT = Math.min(1, this.vinT + cant / 35); },
+  dano(cant) {
+    this.vinT = Math.min(1, this.vinT + cant / 35);
+    // pantallazo rojo corto
+    const f = document.getElementById('flashRojo');
+    f.style.transition = 'none'; f.style.opacity = Math.min(0.55, 0.22 + cant / 120);
+    requestAnimationFrame(() => { f.style.transition = 'opacity .35s ease-out'; f.style.opacity = 0; });
+  },
+
+  victoria() {
+    const v = document.getElementById('victoria');
+    document.getElementById('vicPuntos').textContent = G.puntos;
+    document.getElementById('vicBajas').textContent = G.bajas;
+    const s = Math.floor(G.t), m = Math.floor(s / 60);
+    document.getElementById('vicTiempo').textContent = m + ':' + String(s % 60).padStart(2, '0');
+    setTimeout(() => { v.classList.remove('oculto'); G.sinPausa = true; if (document.exitPointerLock) document.exitPointerLock(); }, 2500);
+    this.anuncio('🏆 ¡VICTORIA! 🏆', 'Recuperaste el ARDUINO SUPREMO', '#ffcf4a');
+  },
 
   muerte(si, tipo) {
     this.el.muerte.classList.toggle('oculto', !si);
