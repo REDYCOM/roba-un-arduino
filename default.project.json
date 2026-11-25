@@ -1,0 +1,46 @@
+{
+  "name": "roba-un-arduino-educativo",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "SistemaEducativo": {
+        "$path": "src/servidor"
+      },
+      "TeamSystem": {
+        "$path": "src/correcciones/TeamSystem.server.luau"
+      },
+      "GunServerHandler": {
+        "$path": "src/correcciones/GunServerHandler.server.luau"
+      }
+    },
+
+    "ReplicatedStorage": {
+      "SistemaEducativo": {
+        "$path": "src/compartido"
+      }
+    },
+
+    "StarterGui": {
+      "ScreenGui": {
+        "$className": "ScreenGui",
+        "HealthHUD": {
+          "$path": "src/correcciones/HealthHUD.client.luau"
+        }
+      }
+    },
+
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "SistemaEducativoCliente": {
+          "$path": "src/cliente"
+        }
+      },
+      "StarterCharacterScripts": {
+        "TeamSelector.lua": {
+          "$path": "src/correcciones/TeamSelector.client.luau"
+        }
+      }
+    }
+  }
+}

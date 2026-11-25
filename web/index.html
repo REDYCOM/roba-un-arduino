@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roba un Arduino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/hud.css">
+</head>
+<body>
+<div id="app"></div>
+
+<!-- ======================= HUD ======================= -->
+<div id="hud" class="oculto">
+  <div id="vinieta"></div>
+  <div id="mira"><span></span><span></span><span></span><span></span></div>
+  <div id="hitmarker"></div>
+
+  <div id="oleadaBox">
+    <div id="oleadaTitulo">OLEADA 0</div>
+    <div id="oleadaSub">Prepárate…</div>
+  </div>
+
+  <div id="jefeBox" class="oculto">
+    <div id="jefeNombre">MEGA-ARDUINO</div>
+    <div class="barra"><div id="jefeVida"></div></div>
+  </div>
+
+  <div id="puntosBox">
+    <div class="fila"><span>⭐ Puntos</span><b id="puntos">0</b></div>
+    <div class="fila"><span>🤖 Robots</span><b id="bajas">0</b></div>
+  </div>
+  <canvas id="minimapa" width="180" height="180"></canvas>
+
+  <div id="feed"></div>
+
+  <div id="vidaBox">
+    <div class="icono">❤</div>
+    <div class="barra"><div id="vida"></div></div>
+    <b id="vidaNum">100</b>
+  </div>
+
+  <div id="armaBox">
+    <div id="armaNombre">Bláster</div>
+    <div class="barra fina"><div id="recarga"></div></div>
+  </div>
+  <div id="hotbar"></div>
+
+  <div id="anuncio"></div>
+  <div id="numeros"></div>
+</div>
+
+<!-- ======================= MENÚS ======================= -->
+<div id="menu" class="pantalla">
+  <div class="tarjeta">
+    <div class="logo">ROBA UN <span>ARDUINO</span></div>
+    <p class="historia">El hechicero <b>ARDUNOL</b> robó el <b>ARDUINO SUPREMO</b> y llenó la isla de robots.
+      Defiende tu base, destruye las oleadas y derrota al <b>MEGA-ARDUINO</b>.</p>
+    <div class="controles">
+      <div><kbd>W A S D</kbd> moverse</div>
+      <div><kbd>Mouse</kbd> apuntar</div>
+      <div><kbd>Click</kbd> disparar</div>
+      <div><kbd>Espacio</kbd> saltar</div>
+      <div><kbd>Shift</kbd> correr</div>
+      <div><kbd>1-6</kbd> / <kbd>Rueda</kbd> armas</div>
+      <div><kbd>Esc</kbd> pausa</div>
+      <div><kbd>Q</kbd> calidad</div>
+    </div>
+    <button id="btnJugar" disabled>Cargando…</button>
+    <div class="nota">Las cajas que sueltan los robots grandes dan armas nuevas.</div>
+  </div>
+</div>
+
+<div id="pausa" class="pantalla oculto">
+  <div class="tarjeta chica">
+    <div class="logo chico">PAUSA</div>
+    <button id="btnSeguir">Seguir jugando</button>
+  </div>
+</div>
+
+<div id="muerte" class="pantalla oculto roja">
+  <div class="tarjeta chica">
+    <div class="logo chico">¡TE DERRIBARON!</div>
+    <p>Reapareces en tu base en <b id="muerteCuenta">4</b>…</p>
+  </div>
+</div>
+
+<div id="error" class="pantalla oculto">
+  <div class="tarjeta chica"><div class="logo chico">Ups</div><p id="errorTxt"></p></div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+  // Carga Three.js (módulos) y luego los scripts del juego en orden.
+  // Así funciona abriendo el archivo con doble clic, sin servidor.
+  const btn = document.getElementById('btnJugar');
+  function fallo(msg) {
+    document.getElementById('errorTxt').textContent = msg;
+    document.getElementById('error').classList.remove('oculto');
+    btn.textContent = 'Error al cargar';
+  }
+  try {
+    const THREE = await import('three');
+    const [{ mergeGeometries }, { EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }] = await Promise.all([
+      import('three/addons/utils/BufferGeometryUtils.js'),
+      import('three/addons/postprocessing/EffectComposer.js'),
+      import('three/addons/postprocessing/RenderPass.js'),
+      import('three/addons/postprocessing/UnrealBloomPass.js'),
+      import('three/addons/postprocessing/OutputPass.js'),
+    ]);
+    window.THREE = THREE;
+    window.ADD = { mergeGeometries, EffectComposer, RenderPass, UnrealBloomPass, OutputPass };
+    const archivos = ['datos/base-equipo.js', 'js/core.js', 'js/audio.js', 'js/world.js', 'js/fx.js', 'js/player.js',
+                      'js/weapons.js', 'js/robots.js', 'js/hud.js', 'js/main.js'];
+    for (const f of archivos) {
+      await new Promise((ok, mal) => {
+        const s = document.createElement('script');
+        s.src = f; s.onload = ok; s.onerror = () => mal(new Error('No se pudo cargar ' + f));
+        document.body.appendChild(s);
+      });
+    }
+    window.iniciarJuego();
+  } catch (e) {
+    console.error(e);
+    fallo('No se pudo cargar el juego. ¿Hay conexión a internet? (' + e.message + ')');
+  }
+</script>
+</body>
+</html>

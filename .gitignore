@@ -1,0 +1,13 @@
+# Dependencias (cuando usemos npm/Vite)
+node_modules/
+dist/
+
+# Datos crudos generados por el lector de .rbxl (se regeneran con herramientas/rbxl)
+herramientas/rbxl/mapa-crudo.json
+
+# Configuración local de Claude / editores
+.claude/settings.local.json
+.vscode/
+*.log
+Thumbs.db
+desktop.ini
