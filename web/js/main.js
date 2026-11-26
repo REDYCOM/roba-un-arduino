@@ -16,7 +16,7 @@ window.iniciarJuego = function () {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 2500);
   scene.add(camera);
-  Object.assign(G, { renderer, scene, camera, puntos: 0, canje: 0, bajas: 0, uTiempo: { value: 0 } });
+  Object.assign(G, { renderer, scene, camera, puntos: 0, canje: 0, misPuntos: 0, puntosEq: [0, 0, 0, 0, 0, 0], bajas: 0, uTiempo: { value: 0 } });
 
   // post-proceso: brillo (bloom) para luces, láseres y ojos de robots
   const composer = new ADD.EffectComposer(renderer);
@@ -46,11 +46,43 @@ window.iniciarJuego = function () {
 
   // ---------- elegir equipo y jugadores ----------
   const cajaEq = document.getElementById('equiposBtns'), slider = document.getElementById('sliderJug');
+  // ---------- perfil: nombre o apodo + color del soldado (se recuerdan en este navegador) ----------
+  const leer = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
+  const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const inpNombre = document.getElementById('nombreJug'), cajaCol = document.getElementById('coloresBtns');
+  const limpiarNombre = (s) => s.replace(/[^\p{L}\p{N} _.-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 14);
+  G.miNombre = limpiarNombre(leer('rua.nombre', '')) || 'Jugador' + randi(10, 99);
+  G.miColor = leer('rua.color', Avatar.COLORES[5]);
+  inpNombre.value = G.miNombre;
+  const perfil = { previa() { Previa.actualizar(G.miNombre, G.miColor, G.profe); } };
+  // ---------- entrar como profe (con clave) ----------
+  const claveZona = document.getElementById('profeClave'), inpClave = document.getElementById('claveProfe');
+  document.getElementById('btnSoyProfe').onclick = () => { claveZona.classList.toggle('oculto'); inpClave.focus(); };
+  const probarClave = () => {
+    if (Profe.comprobar(inpClave.value)) {
+      G.profe = true;
+      document.getElementById('profeZona').innerHTML = '<div class="profeOk">👑 Modo profe activado · en la partida pulsa <kbd>F1</kbd> para tu panel</div>';
+      perfil.previa();
+    } else { inpClave.value = ''; inpClave.placeholder = 'Clave incorrecta'; inpClave.classList.add('error'); }
+  };
+  document.getElementById('btnClaveOk').onclick = probarClave;
+  inpClave.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') probarClave(); });
+  Avatar.COLORES.forEach((c) => {
+    const b = document.createElement('button');
+    b.style.background = c; b.title = c;
+    if (c === G.miColor) b.classList.add('sel');
+    b.onclick = () => { G.miColor = c; guardar('rua.color', c); for (const x of cajaCol.children) x.classList.remove('sel'); b.classList.add('sel'); perfil.previa(); };
+    cajaCol.appendChild(b);
+  });
+  inpNombre.oninput = () => { const n = limpiarNombre(inpNombre.value); G.miNombre = n || 'Jugador'; guardar('rua.nombre', n); perfil.previa(); };
+  inpNombre.addEventListener('keydown', (e) => e.stopPropagation()); // escribir no mueve al jugador
+  Previa.iniciar(document.getElementById('previa'));
+  perfil.previa();
   EQUIPOS.forEach((eq, i) => {
     const b = document.createElement('button');
     b.textContent = 'EQUIPO ' + (i + 1); b.style.background = eq.color;
     if (i === MI_EQUIPO) b.classList.add('sel');
-    b.onclick = () => { MI_EQUIPO = i; for (const x of cajaEq.children) x.classList.remove('sel'); b.classList.add('sel'); };
+    b.onclick = () => { MI_EQUIPO = i; for (const x of cajaEq.children) x.classList.remove('sel'); b.classList.add('sel'); perfil.previa(); };
     cajaEq.appendChild(b);
   });
   slider.oninput = () => { document.getElementById('numJug').textContent = slider.value; };
@@ -64,7 +96,9 @@ window.iniciarJuego = function () {
       const k = Math.ceil(G.jugadores / 5);
       G.equiposActivos = [MI_EQUIPO];
       for (let i = 1; G.equiposActivos.length < k; i++) G.equiposActivos.push((MI_EQUIPO + i) % EQUIPOS.length);
-      Armas.matManga.color.set(EQUIPOS[MI_EQUIPO].color);
+      Armas.matManga.color.set(G.miColor); // tus mangas son del color de tu soldado
+      Companeros.iniciar();
+      if (G.profe) document.getElementById('insigniaProfe').classList.remove('oculto');
       Jugador.revivir();
       Componentes.iniciar();
       document.getElementById('hudEquipo').textContent = EQUIPOS[MI_EQUIPO].nombre;
@@ -120,6 +154,9 @@ window.iniciarJuego = function () {
       Armas.update(dt);
       Oleadas.update(dt);
       Componentes.update(dt);
+      Final.update(dt);
+      Companeros.update(dt);
+      Profe.update(dt);
       Runas.update(dt);
       Poderes.update(dt);
       Estacion.update();

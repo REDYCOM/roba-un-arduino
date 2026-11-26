@@ -56,6 +56,7 @@
   <div id="infoCard" class="oculto"></div>
 
   <div id="anuncio"></div>
+  <div id="insigniaProfe" class="oculto">👑 PROFE · <kbd>F1</kbd> panel</div>
   <div id="quiz" class="oculto"></div>
   <div id="aviso" class="oculto">Pulsa <kbd>E</kbd> para usar la ametralladora</div>
   <div id="numeros"></div>
@@ -65,8 +66,9 @@
 <div id="menu" class="pantalla">
   <div class="tarjeta">
     <div class="logo">ROBA UN <span>ARDUINO</span></div>
-    <p class="historia">El hechicero <b>ARDUNOL</b> robó el <b>ARDUINO SUPREMO</b> y llenó la isla de robots.
-      Defiende tu base, destruye las oleadas y derrota al <b>MEGA-ARDUINO</b>.</p>
+    <p class="historia">El mago <b>ARDUNOL</b> creó un robot malvado y le dio el arma más poderosa que existe: el <b>ARDUINO SUPREMO</b>.
+      Con su ejército de robots quiere dominar el mundo y destruir <b>el último bastión del Reino Tecnológico</b>.
+      Resiste las 8 oleadas, destruye a su robot y <b>roba el Arduino</b> para devolver la paz.</p>
     <div class="controles">
       <div><kbd>W A S D</kbd> moverse</div>
       <div><kbd>Mouse</kbd> apuntar</div>
@@ -78,6 +80,20 @@
       <div><kbd>Q</kbd> calidad</div>
       <div><kbd>E</kbd> recoger / usar</div>
       <div><kbd>T</kbd> tienda (en tu base)</div>
+    </div>
+    <div class="perfil">
+      <canvas id="previa"></canvas>
+      <div class="perfilDatos">
+        <div class="etq">Tu nombre o apodo</div>
+        <input id="nombreJug" maxlength="14" placeholder="Ej: Rayo123" autocomplete="off" spellcheck="false">
+        <div class="etq">Color de tu soldado</div>
+        <div id="coloresBtns"></div>
+        <div class="leyenda"><span class="ali">✚ aliado</span><span class="riv">✖ rival</span><span class="pro">★ profe</span></div>
+        <div id="profeZona">
+          <button id="btnSoyProfe" class="secundario">👑 Soy profe</button>
+          <div id="profeClave" class="oculto"><input id="claveProfe" type="password" placeholder="Clave de profe" autocomplete="off"><button id="btnClaveOk">Entrar</button></div>
+        </div>
+      </div>
     </div>
     <div class="elegir">
       <div class="etq">Elige tu equipo</div>
@@ -93,6 +109,8 @@
 </div>
 
 <div id="estacion" class="ventanaJuego oculto"></div>
+<div id="panelProfe" class="ventanaJuego oculto"></div>
+<div id="pausaProfe" class="oculto"><div>⏸ EL PROFE PAUSÓ LA PARTIDA</div><small>Espera sus instrucciones…</small></div>
 <div id="tienda" class="ventanaJuego oculto"></div>
 
 <div id="creditos" class="pantalla oculto">
@@ -127,7 +145,7 @@
 <div id="victoria" class="pantalla oculto">
   <div class="tarjeta">
     <div class="logo">¡GANASTE! <span>🏆</span></div>
-    <p class="historia">Derrotaste a <b>ARDUNOL</b> y recuperaste el <b>ARDUINO SUPREMO</b>. ¡La isla vuelve a ser libre!</p>
+    <p class="historia">Destruiste al robot de <b>ARDUNOL</b> y robaste el <b>ARDUINO SUPREMO</b>. El último bastión resistió: ¡la paz vuelve al Reino Tecnológico!</p>
     <div class="controles"><div>⭐ Puntos: <b id="vicPuntos">0</b></div><div>🤖 Robots: <b id="vicBajas">0</b></div><div>⏱ Tiempo: <b id="vicTiempo">0:00</b></div></div>
     <button onclick="location.reload()">Jugar otra vez</button>
     <details class="creditosVic"><summary>📜 Créditos</summary><div class="creditosTxt">
@@ -177,7 +195,7 @@
     window.THREE = THREE;
     window.ADD = { mergeGeometries, EffectComposer, RenderPass, UnrealBloomPass, OutputPass, GLTFLoader, MeshoptDecoder, SkeletonUtils };
     const archivos = ['datos/base-equipo.js', 'datos/componentes.js', 'js/core.js', 'js/audio.js', 'js/world.js', 'js/fx.js', 'js/player.js',
-                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/jefe-mech.js', 'js/robots.js', 'js/componentes.js', 'js/runas.js', 'js/poderes.js', 'js/preguntas.js', 'js/retos.js', 'js/tienda.js', 'js/hud.js', 'js/main.js'];
+                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/jefe-mech.js', 'js/robots.js', 'js/componentes.js', 'js/final.js', 'js/avatar.js', 'js/profe.js', 'js/runas.js', 'js/poderes.js', 'js/preguntas.js', 'js/retos.js', 'js/tienda.js', 'js/hud.js', 'js/main.js'];
     for (const f of archivos) {
       await new Promise((ok, mal) => {
         const s = document.createElement('script');

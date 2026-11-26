@@ -25,6 +25,7 @@ const Jugador = {
     if (this.muerto || this.invulnerable > 0 || G.estado !== 'jugando') return;
     // runa ESCUDO: no te hacen daño, solo chispas azules
     if (G.mods.escudo) { FX.chispazo(this.centro(), '#50aaff', 10, 4); HUD.escudoGolpe(); return; }
+    cant *= Profe.dif.dano; // dificultad elegida por el profe
     this.vida -= cant;
     this.ultimoDano = G.t;
     Sfx.play('dano');

@@ -48,8 +48,8 @@ const Robots = {
     Terror.decorar(mod, cfg);
     const r = {
       tipo, cfg, mod, raiz: mod.raiz, partes: mod.partes, segs: mod.segs,
-      vida: cfg.vida * mult + (cfg.vidaPorJugador || 0) * (G.jugadores - 1),
-      vidaMax: cfg.vida * mult + (cfg.vidaPorJugador || 0) * (G.jugadores - 1), radio: cfg.radio,
+      vida: (cfg.vida * mult + (cfg.vidaPorJugador || 0) * (G.jugadores - 1)) * Profe.dif.vida,
+      vidaMax: (cfg.vida * mult + (cfg.vidaPorJugador || 0) * (G.jugadores - 1)) * Profe.dif.vida, radio: cfg.radio,
       pos: V3(x, Terreno.altura(x, z), z), yaw: 0, fase: rand(0, 6), ataque: 0, cdAtaque: 0, flash: 0,
       aparecer: 0, esquivar: 0, ladoEsq: 1, cdDisparo: rand(1, 2.5), orbita: rand(0, TAU), altVuelo: rand(6, 9),
       cdOrbes: 4, cdPisoton: 3, cdRayos: 8, cdMisil: 6, furia: false, pasoT: 0, muerto: false, salto: 0,
@@ -97,7 +97,8 @@ const Robots = {
     if (r.vida <= 0) { this.morir(r); HUD.hit(true); } else HUD.hit(false);
   },
 
-  morir(r) {
+  // quien = otro jugador que lo destruyó { nombre, equipo } (sus puntos van a su equipo)
+  morir(r, quien) {
     r.muerto = true;
     const c = r.centro();
     FX.explosion(c, 1.2 + r.cfg.fx * 0.9, r.cfg.jefe ? '#ff5522' : '#ffa040');
@@ -124,12 +125,22 @@ const Robots = {
     this.vivos.splice(this.vivos.indexOf(r), 1);
     // puntos
     const pts = r.cfg.puntos;
-    G.bajas++;
-    sumarPuntos(pts);
-    HUD.feed(`🤖 ${r.cfg.nombre || r.tipo} destruido <b>+${pts}</b>`);
-    if (r.cfg.jefe) {
+    if (quien) {
+      // lo destruyó otro jugador: los puntos van a su equipo
+      HUD.feed(`🤖 ${r.cfg.nombre || r.tipo} destruido por <b>${quien.nombre}</b>`);
+      if (quien.equipo >= 0) {
+        G.puntosEq[quien.equipo] += pts; quien.puntos = (quien.puntos || 0) + pts; quien.bajas = (quien.bajas || 0) + 1;
+        if (quien.equipo === MI_EQUIPO) { G.puntos += pts; HUD.puntos(); }
+      }
+    } else {
+      G.bajas++;
+      sumarPuntos(pts);
+      HUD.feed(`🤖 ${r.cfg.nombre || r.tipo} destruido <b>+${pts}</b>`);
+    }
+    if (r.cfg.final) Final.jefeCayo(r);
+    else if (r.cfg.jefe) {
       HUD.jefe(null);
-      HUD.anuncio('¡JEFE DERROTADO!', '+' + pts + ' puntos', '#ffcf4a');
+      HUD.anuncio('¡JEFE DERROTADO!', quien ? 'por ' + quien.nombre : '+' + pts + ' puntos', '#ffcf4a');
       Clima.relampago(V3(r.pos.x, Terreno.altura(r.pos.x, r.pos.z), r.pos.z), true);
     }
     // botín
@@ -245,7 +256,7 @@ const Robots = {
       const objetivo = Jugador.muerto ? V3(0, SUELO, 0) : pj;
       const dx = objetivo.x - r.pos.x, dz = objetivo.z - r.pos.z;
       const dist = Math.hypot(dx, dz) || 0.001;
-      const velBase = cfg.vel * (r.furia ? 1.35 : 1) * (r.aparecer < 1 ? 0 : 1);
+      const velBase = cfg.vel * Profe.dif.vel * (r.furia ? 1.35 : 1) * (r.aparecer < 1 ? 0 : 1);
 
       if (cfg.vuela) { this.iaDron(r, dt, dist); Terror.update(r, dt); continue; }
       Terror.update(r, dt);
@@ -588,17 +599,46 @@ const Oleadas = {
     return cola;
   },
 
+  // mientras el jefe final siga vivo, ARDUNOL le manda refuerzos sin parar
+  refuerzos(dt, mult) {
+    const jefe = Robots.vivos.find((r) => r.cfg.final && !r.muerto);
+    if (!jefe || jefe.brinco || Final.estado || jefe.aparecer < 1) return;
+    this.refT -= dt;
+    if (this.refT > 0) return;
+    this.refT = jefe.furia ? 9 : 14;
+    const libres = this.maxVivos() - Robots.vivos.length;
+    const n = Math.min(libres, Math.round((jefe.furia ? 5 : 3) * (1 + (G.jugadores - 1) * 0.08)));
+    if (n <= 0) return;
+    const desde = jefe.mech ? Mech.mundo(jefe, jefe.mech.puntos.ojos) : jefe.centro().add(V3(0, jefe.cfg.alto * 0.3, 0));
+    let hechos = 0;
+    for (let k = 0; k < 30 && hechos < n; k++) {
+      const a = Math.random() * TAU, d = rand(8, 16);
+      const x = jefe.pos.x + Math.cos(a) * d, z = jefe.pos.z + Math.sin(a) * d;
+      if (Terreno.altura(x, z) < 1 || Math.hypot(x, z) > 125) continue;
+      if (G.cajas.some((c) => x > c.min.x - 1.5 && x < c.max.x + 1.5 && z > c.min.z - 1.5 && z < c.max.z + 1.5)) continue;
+      const tipo = Math.random() < 0.12 ? 'Tanque' : pick(['Seguidor', 'Arana', 'Soldado', 'Chatarra', 'Dron']);
+      Robots.crear(tipo, x, z, mult);
+      FX.segmento(desde, V3(x, Terreno.altura(x, z) + 1, z), 0.12, '#ff2040', 0.35, 5);
+      hechos++;
+    }
+    if (!hechos) return;
+    jefe.ataque = 0.8;
+    FX.chispazo(desde, '#ff2040', 24, 8);
+    if (!this.refAviso) { this.refAviso = true; HUD.anuncio('⚠ ¡REFUERZOS!', 'Mientras su robot viva, ARDUNOL mandará más robots', '#ff4466'); }
+    else HUD.feed('🤖 ¡ARDUNOL llama ' + hechos + ' refuerzos!');
+  },
+
   // robots vivos a la vez: 18 + 1 por jugador extra, hasta 30 (como Roblox)
-  maxVivos() { return Math.min(18 + (G.jugadores - 1), 30); },
+  maxVivos() { return clamp(Math.round(Math.min(18 + (G.jugadores - 1), 30) * Profe.dif.cant), 4, 40); },
 
   empezar() {
     this.n++;
     this.tipo = this.PLAN[this.n] || 'normal';
     this.cola = this.componer();
-    this.fase = 'oleada'; this.genT = 1.5;
+    this.fase = 'oleada'; this.genT = 1.5; this.refT = 12; this.refAviso = false;
     if (this.n === 1) { Mapa.quitarRejas(); HUD.feed('🔓 ¡Se abrieron las rejas!'); }
     Clima.poner(this.tipo === 'final' ? 'desatado' : this.tipo === 'morado' ? 'final' : this.tipo === 'jefe' ? 'tormenta' : this.tipo === 'drones' ? 'niebla' : 'noche');
-    if (this.tipo === 'final') { HUD.anuncio('☠ OLEADA FINAL ☠', '¡ARDUNOL DESATADO!', '#ff3355'); Sfx.play('jefe'); FX.sacudir(1.2); }
+    if (this.tipo === 'final') { HUD.anuncio('☠ OLEADA FINAL ☠', 'ARDUNOL lanza su arma suprema', '#ff3355'); Sfx.play('jefe'); FX.sacudir(1.2); }
     else if (this.tipo === 'morado') { HUD.anuncio('⚡ OLEADA ' + this.n + ' ⚡', 'ARDUNOL despierta a su robot gigante', '#c879ff'); Sfx.play('jefe'); FX.sacudir(1); }
     else if (this.tipo === 'jefe') { HUD.anuncio('⚠ OLEADA ' + this.n + ' ⚠', '¡Llega el MEGA-ARDUINO!', '#ff6a3c'); Sfx.play('jefe'); FX.sacudir(0.6); }
     else if (this.tipo === 'drones') { HUD.anuncio('OLEADA ' + this.n, '¡Enjambre de drones!', '#9fe6a0'); Sfx.play('oleada'); }
@@ -635,16 +675,15 @@ const Oleadas = {
         const r = Robots.crear(tipo, x, z, mult);
         if (r.mech) Mech.entrada(r);
         if (tipo === 'Coloso') HUD.anuncio('¡COLOSO!', 'Si te toca, caes. Mantén distancia', '#ff9a3c');
-        this.genT = tipo === 'Jefe' ? 3 : rand(0.5, 1.1) / Math.sqrt(1 + (G.jugadores - 1) * 0.1);
+        this.genT = tipo === 'Jefe' ? 3 : rand(0.5, 1.1) / Math.sqrt(1 + (G.jugadores - 1) * 0.1) / Profe.dif.cant;
         if (tipo === 'Jefe') r.yaw = Math.atan2(x, z);
       }
+      if (this.tipo === 'final') this.refuerzos(dt, mult);
       const quedan = this.cola.length + Robots.vivos.length;
       HUD.oleada(this.tipo === 'final' ? '☠ OLEADA FINAL ☠' : 'OLEADA ' + this.n + ' / ' + this.TOTAL, '🤖 ' + quedan + ' robots restantes');
       if (quedan === 0 && this.tipo === 'final') {
-        sumarPuntos(500);
-        Sfx.play('recoger'); Jugador.invulnerable = 999;
-        this.fase = 'fin'; Clima.poner('dia');
-        HUD.victoria();
+        // la victoria llega al robar el Arduino (js/final.js)
+        this.fase = 'fin';
         return;
       }
       if (quedan === 0) {

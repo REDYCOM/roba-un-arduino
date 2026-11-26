@@ -84,7 +84,7 @@ const Quiz = {
     ops[q.ok].classList.add('bien');
     if (!bien && k >= 0) ops[k].classList.add('mal');
     document.getElementById('quizExp').innerHTML = (bien ? `✅ ¡Correcto! <b>+${this.PREMIO}</b> · ` : k < 0 ? '⏱ Se acabó el tiempo · ' : '❌ Era la opción ' + (q.ok + 1) + ' · ') + q.exp;
-    if (bien) { sumarPuntos(this.PREMIO); Sfx.play('recoger'); } else Sfx.play('sinMunicion');
+    if (bien) { sumarPuntos(this.PREMIO); this.aciertos = (this.aciertos || 0) + 1; Sfx.play('recoger'); } else Sfx.play('sinMunicion');
     this.t = Math.min(this.t, 0) + 5; // deja ver la explicación 5 s
   },
 

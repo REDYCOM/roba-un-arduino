@@ -215,7 +215,7 @@ const Mech = {
     const y1 = Terreno.altura(r.pos.x, r.pos.z);
     r.brinco = { t: 0, dur: 2.6, x0: r.pos.x, z0: r.pos.z, y0: y1 + 90, x1: r.pos.x, z1: r.pos.z, y1, alto: 0, golpe: true, caida: true };
     r.pos.y = y1 + 90;
-    HUD.anuncio('☠ OLEADA FINAL ☠', 'ARDUNOL baja en su mech de guerra', '#ff3355');
+    HUD.anuncio('☠ OLEADA FINAL ☠', 'Llega el robot de ARDUNOL con el ARDUINO SUPREMO', '#ff3355');
   },
 
   aterrizar(r) {
@@ -225,7 +225,7 @@ const Mech = {
     Clima.relampago(p, true);
     Destruibles.explosion(p, 14);
     FX.sacudir(1.4);
-    HUD.anuncio('¡ARDUNOL DESATADO!', 'Destruye su mech para salvar la isla', '#ff3355');
+    HUD.anuncio('¡ARDUNOL DESATADO!', 'Destrúyelo y roba el ARDUINO', '#ff3355');
     Sfx.play('jefe');
     const dj = Math.hypot(Jugador.pos.x - p.x, Jugador.pos.z - p.z);
     if (dj < 16 && !Jugador.muerto) Jugador.danar(30, p, 'pisoton');

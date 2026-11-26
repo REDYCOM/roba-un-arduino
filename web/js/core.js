@@ -52,7 +52,7 @@ function distSeg(px, pz, ax, az, bx, bz) {
 }
 
 // Todo lo que da puntos suma al puntaje Y a tus puntos para canjear
-function sumarPuntos(n) { G.puntos += n; G.canje += n; HUD.puntos(); }
+function sumarPuntos(n) { G.puntos += n; G.canje += n; G.misPuntos += n; G.puntosEq[MI_EQUIPO] += n; HUD.puntos(); }
 
 // ---------------------------------------------------------------------
 //  Entrada
