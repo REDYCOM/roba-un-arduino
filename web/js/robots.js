@@ -10,12 +10,12 @@ const TIPOS = {
   Dron:      { vida: 90, vel: 8.2, dano: 0, alcance: 0, puntos: 20, fx: 1, vuela: true, caja: 0.05, disparo: { dano: 12, cad: 2.4, alcance: 32 } },
   Tanque:    { vida: 600, vel: 4.1, mata: true, alcance: 5.8 * ST, puntos: 40, fx: 2, caja: 0.15, mov: 'carga', rompe: true },
   Chatarra:  { vida: 320, vel: 5.7, dano: 35, alcance: 4.6 * ST, puntos: 25, fx: 2, caja: 0.25, mov: 'carga', rompe: true },
-  Coloso:    { vida: 1000, vel: 4.5, mata: true, alcance: 9 * ST, puntos: 80, fx: 3.5, caja: 1, pasos: true, mov: 'golpe', rompe: true },
-  Jefe:      { vida: 1500, vel: 3.8, mata: true, alcance: 11.5 * ST, puntos: 150, fx: 4, pasos: true, jefe: true, nombre: 'MEGA-ARDUINO', mov: 'golpe', rompe: true, aura: '#7dff4a' },
-  JefeFinal: { vida: 4000, vel: 3.4, mata: true, alcance: 16 * ST, puntos: 400, fx: 6, pasos: true, jefe: true, nombre: 'ROBOT DE ARDUNOL', mov: 'golpe', rompe: true, aura: '#b06bff' },
-  // Oleada 8 (provisorio, hasta tener el modelo del jefe final): el robot de Ardunol corrompido
-  Desatado:  { vida: 9000, vel: 3.8, mata: true, alcance: 16 * ST, puntos: 1000, fx: 7, pasos: true, jefe: true, final: true, nombre: 'ARDUNOL DESATADO',
-               mov: 'golpe', rompe: true, modelo: 'JefeFinal', escala: 1.25, tinte: '#ff2040', aura: '#ff2040' },
+  Coloso:    { vida: 1000, vidaPorJugador: 150, vel: 4.5, mata: true, alcance: 9 * ST, puntos: 80, fx: 3.5, caja: 1, pasos: true, mov: 'golpe', rompe: true },
+  Jefe:      { vida: 1500, vidaPorJugador: 800, vel: 3.8, mata: true, alcance: 11.5 * ST, puntos: 150, fx: 4, pasos: true, jefe: true, nombre: 'MEGA-ARDUINO', mov: 'golpe', rompe: true, aura: '#7dff4a' },
+  JefeFinal: { vida: 4000, vidaPorJugador: 1500, vel: 3.4, mata: true, alcance: 16 * ST, puntos: 400, fx: 6, pasos: true, jefe: true, nombre: 'ROBOT DE ARDUNOL', mov: 'golpe', rompe: true, aura: '#b06bff' },
+  // Oleada 8: ARDUNOL DESATADO en su mech (modelo KW-II). Si el modelo no carga, usa el robot de Ardunol corrompido
+  Desatado:  { vida: 9000, vidaPorJugador: 1500, vel: 3.8, mata: true, alcance: 16 * ST, puntos: 1000, fx: 7, pasos: true, jefe: true, final: true, nombre: 'ARDUNOL DESATADO',
+               mov: 'golpe', rompe: true, mech: true, modelo: 'JefeFinal', escala: 1.25, tinte: '#ff2040', aura: '#ff2040' },
 };
 
 // ---------- utilidades de modelado ----------
@@ -39,15 +39,17 @@ const Robots = {
 
   crear(tipo, x, z, mult = 1) {
     const cfg = TIPOS[tipo];
-    const mod = RB.construir(cfg.modelo || tipo);
-    const k = cfg.escala || 1;
+    const esMech = cfg.mech && Mech.listo;
+    const mod = esMech ? Mech.construir() : RB.construir(cfg.modelo || tipo);
+    const k = esMech ? 1 : cfg.escala || 1;
     if (k !== 1) mod.cuerpo.scale.setScalar(k);
     // medidas reales del modelo de Roblox
-    if (!cfg.alto) { cfg.alto = cfg.vuela ? 0.8 : mod.med.alto * k; cfg.radio = Math.max(0.45, mod.med.ancho * k * (cfg.vuela ? 0.45 : 0.32)); }
+    if (!cfg.alto || esMech) { cfg.alto = cfg.vuela ? 0.8 : mod.med.alto * k; cfg.radio = Math.max(0.45, mod.med.ancho * k * (cfg.vuela ? 0.45 : 0.32)); }
     Terror.decorar(mod, cfg);
     const r = {
       tipo, cfg, mod, raiz: mod.raiz, partes: mod.partes, segs: mod.segs,
-      vida: cfg.vida * mult, vidaMax: cfg.vida * mult, radio: cfg.radio,
+      vida: cfg.vida * mult + (cfg.vidaPorJugador || 0) * (G.jugadores - 1),
+      vidaMax: cfg.vida * mult + (cfg.vidaPorJugador || 0) * (G.jugadores - 1), radio: cfg.radio,
       pos: V3(x, Terreno.altura(x, z), z), yaw: 0, fase: rand(0, 6), ataque: 0, cdAtaque: 0, flash: 0,
       aparecer: 0, esquivar: 0, ladoEsq: 1, cdDisparo: rand(1, 2.5), orbita: rand(0, TAU), altVuelo: rand(6, 9),
       cdOrbes: 4, cdPisoton: 3, cdRayos: 8, cdMisil: 6, furia: false, pasoT: 0, muerto: false, salto: 0,
@@ -56,7 +58,8 @@ const Robots = {
     };
     if (cfg.vuela) r.pos.y += r.altVuelo;
     r.centro = () => this.centroDe(r);
-    if (cfg.tinte) { r.furia = true; for (const m of r.mats) { m.emissive.set(cfg.tinte); m.emissiveIntensity = 0.3; } }
+    if (esMech) Mech.preparar(r);
+    else if (cfg.tinte) { r.furia = true; for (const m of r.mats) { m.emissive.set(cfg.tinte); m.emissiveIntensity = 0.3; } }
     r.raiz.traverse((o) => {
       if (!o.isMesh) return;
       o.userData.robot = r;
@@ -77,7 +80,7 @@ const Robots = {
 
   danar(r, cant, punto, critico) {
     if (r.muerto) return;
-    cant = Math.round(cant);
+    cant = Math.round(cant * G.mods.dano); // runa SOBRECARGA: doble daño
     r.vida -= cant;
     r.flash = 0.09;
     HUD.numero(punto || r.centro(), cant, critico);
@@ -86,9 +89,9 @@ const Robots = {
       HUD.jefe(r.cfg.nombre, Math.max(0, r.vida / r.vidaMax));
       if (!r.furia && r.vida < r.vidaMax * 0.5) {
         r.furia = true;
-        HUD.anuncio('¡FURIA!', 'El MEGA-ARDUINO se enoja', '#ff5533');
+        HUD.anuncio('¡FURIA!', r.mech ? '¡El mech de ARDUNOL se sobrecalienta!' : '¡' + r.cfg.nombre + ' se enoja!', '#ff5533');
         Sfx.play('jefe'); FX.sacudir(0.8);
-        for (const m of r.mats) m.emissive.set('#ff2200');
+        if (!r.mech) for (const m of r.mats) m.emissive.set('#ff2200');
       }
     }
     if (r.vida <= 0) { this.morir(r); HUD.hit(true); } else HUD.hit(false);
@@ -100,8 +103,9 @@ const Robots = {
     FX.explosion(c, 1.2 + r.cfg.fx * 0.9, r.cfg.jefe ? '#ff5522' : '#ffa040');
     Sfx.play('muereRobot', c.distanceTo(Jugador.pos));
     if (r.cfg.fx >= 3.5) { setTimeout(() => FX.explosion(c.clone().add(V3(rand(-2, 2), rand(0, 3), rand(-2, 2))), 3, '#ff7733'), 250); setTimeout(() => FX.explosion(c.clone().add(V3(rand(-2, 2), rand(-1, 2), rand(-2, 2))), 4, '#ffcc55'), 550); }
-    // piezas que salen volando
+    // piezas que salen volando (el mech tiene su propia caída)
     const piezas = [];
+    if (r.mech) Mech.caer(r); else {
     r.raiz.updateMatrixWorld(true);
     r.raiz.traverse((o) => { if (o.isMesh && !o.userData.noResto && o.geometry.type !== 'ConeGeometry') piezas.push(o); });
     const elegidas = piezas.sort(() => Math.random() - 0.5).slice(0, Math.min(10, piezas.length));
@@ -115,12 +119,13 @@ const Robots = {
       this.restos.push({ m: copia, vel: V3(rand(-imp, imp), rand(3, imp * 1.5), rand(-imp, imp)), giro: V3(rand(-6, 6), rand(-6, 6), rand(-6, 6)), vida: rand(2.5, 4), s0: ws.clone() });
     }
     G.scene.remove(r.raiz);
+    }
     Terror.quitar(r);
     this.vivos.splice(this.vivos.indexOf(r), 1);
     // puntos
     const pts = r.cfg.puntos;
-    G.puntos += pts; G.bajas++;
-    HUD.puntos();
+    G.bajas++;
+    sumarPuntos(pts);
     HUD.feed(`🤖 ${r.cfg.nombre || r.tipo} destruido <b>+${pts}</b>`);
     if (r.cfg.jefe) {
       HUD.jefe(null);
@@ -232,7 +237,8 @@ const Robots = {
       r.aparecer = Math.min(1, r.aparecer + dt * 1.6);
       r.raiz.scale.setScalar(Math.max(0.01, smooth(0, 1, r.aparecer)));
       r.flash = Math.max(0, r.flash - dt);
-      if (!r.furia) for (const m of r.mats) m.emissive.setScalar(r.flash > 0 ? 0.9 : 0);
+      if (r.mech) Mech.brillo(r);
+      else if (!r.furia) for (const m of r.mats) m.emissive.setScalar(r.flash > 0 ? 0.9 : 0);
       else for (const m of r.mats) m.emissiveIntensity = r.flash > 0 ? 3 : 0.35 + Math.sin(G.t * 8) * 0.15;
       r.cdAtaque -= dt; r.ataque = Math.max(0, r.ataque - dt);
 
@@ -363,6 +369,15 @@ const Robots = {
     if (r.cfg.rompe) Destruibles.romperCerca(r.pos, r.radio + 0.5, r.pos);
     r.raiz.position.copy(r.pos);
     r.raiz.rotation.y = r.yaw;
+    if (b.caida) {
+      // cae del cielo acelerando, con fuego
+      r.pos.y = lerp(b.y0, b.y1, t * t);
+      for (let i = 0; i < 4; i++) FX.chispas.emitir(r.pos.x + rand(-2, 2), r.pos.y + rand(0, 3), r.pos.z + rand(-2, 2), rand(-2, 2), rand(4, 10), rand(-2, 2), FX.c(pick(['#ff6a2a', '#ffb347', '#ff2040']), 3), rand(0.2, 0.5), 0.6);
+      FX.humo.emitir(r.pos.x, r.pos.y + 4, r.pos.z, 0, 3, 0, new THREE.Color(0.25, 0.22, 0.22), 2.5, 1.5, { crece: 2, a: 0.5 });
+      r.raiz.position.copy(r.pos);
+      if (t >= 1) { r.brinco = null; Mech.aterrizar(r); }
+      return;
+    }
     r.mod.cuerpo.rotation.x = Math.sin(t * Math.PI) * -0.25;
     if (t >= 1) {
       r.brinco = null; r.mod.cuerpo.rotation.x = 0;
@@ -418,8 +433,9 @@ const Robots = {
     if (r.partes.Nucleo) r.partes.Nucleo.scale.setScalar(r.mod.spec.escala * ST * (1 + Math.sin(G.t * 5) * 0.15));
     if (Jugador.muerto || r.aparecer < 1) return;
     const boca = r.centro().add(V3(0, r.cfg.alto * 0.25, 0));
+    if (r.mech) this.mechAtaques(r, dt, dist);
     // orbes en abanico
-    if (r.cdOrbes <= 0 && dist < 60) {
+    if (!r.mech && r.cdOrbes <= 0 && dist < 60) {
       r.cdOrbes = 4 * k; r.ataque = 0.6;
       const base = pj.clone().sub(boca).normalize();
       const n = r.furia ? 7 : 5;
@@ -475,8 +491,8 @@ const Robots = {
         G.anim.push(f);
       }
     }
-    // misil teledirigido si te alejas
-    if (r.cdMisil <= 0 && dist > 28) {
+    // misil teledirigido si te alejas (el mech usa sus cañones)
+    if (!r.mech && r.cdMisil <= 0 && dist > 28) {
       r.cdMisil = 6 * k;
       const d = V3(0, 1, 0).add(pj.clone().sub(boca).normalize()).normalize();
       this.bala('misil', boca.clone().addScaledVector(d, 2), d.multiplyScalar(16), 30, { vida: 7, radio: 0.6, giro: 2.2 });
@@ -484,7 +500,10 @@ const Robots = {
     }
   },
 
+  mechAtaques(r, dt, dist) { Mech.ataques(r, dt, dist); },
+
   animar(r, dt, rapidez) {
+    if (r.mech) { Mech.animar(r, dt, rapidez); return; }
     const sg = r.segs, f = r.fase, mov = clamp(rapidez / Math.max(r.cfg.vel, 0.1), 0, 1), anim = r.mod.spec.anim;
     const atk = r.ataque > 0;
     if (anim === 'ruedas') {
@@ -526,7 +545,7 @@ const Robots = {
 //  OLEADAS (mismo ritmo que el juego de Roblox)
 // =====================================================================
 const Oleadas = {
-  n: 0, fase: 'espera', cuenta: 10, cola: [], genT: 0, tipo: 'normal', MAX_VIVOS: 18, DESCANSO: 12,
+  n: 0, fase: 'espera', cuenta: 10, cola: [], genT: 0, tipo: 'normal', MAX_VIVOS: 18, DESCANSO: 20, quizEn: 0,
 
   // plan de la partida: 8 oleadas
   PLAN: [null, 'normal', 'normal', 'jefe', 'drones', 'morado', 'normal', 'mixta', 'final'],
@@ -560,8 +579,17 @@ const Oleadas = {
       for (let i = 0; i < Math.min(6 + n * 3, 40); i++) cola.push(elegir());
       if (n >= 5) { cola.splice(randi(2, 6), 0, 'Coloso'); if (n >= 8) cola.push('Coloso'); }
     }
+    // MÁS JUGADORES = MÁS ROBOTS (+12% por cada jugador extra)
+    const k = 1 + (G.jugadores - 1) * 0.12;
+    const normales = cola.filter((t) => !TIPOS[t].jefe && t !== 'Coloso');
+    const extra = Math.round(normales.length * (k - 1));
+    for (let i = 0; i < extra; i++) cola.splice(randi(1, cola.length), 0, pick(normales));
+    if (cola.includes('Coloso')) { if (G.jugadores > 10) cola.push('Coloso'); if (G.jugadores > 20) cola.push('Coloso'); }
     return cola;
   },
+
+  // robots vivos a la vez: 18 + 1 por jugador extra, hasta 30 (como Roblox)
+  maxVivos() { return Math.min(18 + (G.jugadores - 1), 30); },
 
   empezar() {
     this.n++;
@@ -579,10 +607,11 @@ const Oleadas = {
 
   puntoAparicion(vuela) {
     for (let k = 0; k < 40; k++) {
-      const a = Math.random() * TAU, r = Terreno.borde(a) - rand(18, 26);
+      const eq = EQUIPOS[pick(G.equiposActivos)];
+      const a = Math.random() < 0.75 ? eq.ang + rand(-0.6, 0.6) : Math.random() * TAU, r = Terreno.borde(a) - rand(18, 26);
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
       if (Terreno.altura(x, z) < 1) continue;
-      if (Math.hypot(x - Jugador.pos.x, z - Jugador.pos.z) < 35) continue;
+      if (Math.hypot(x - Jugador.pos.x, z - Jugador.pos.z) < 28) continue;
       if (!vuela && G.cajas.some((c) => x > c.min.x - 2 && x < c.max.x + 2 && z > c.min.z - 2 && z < c.max.z + 2)) continue;
       return [x, z];
     }
@@ -592,25 +621,27 @@ const Oleadas = {
   update(dt) {
     if (this.fase === 'descanso') {
       this.cuenta -= dt;
+      if (this.quizEn > 0 && (this.quizEn -= dt) <= 0) Quiz.lanzar();
       HUD.oleada(this.n === 0 ? 'PREPÁRATE' : 'DESCANSO', (this.n === 0 ? 'Las rejas se abren en ' : this.n + 1 === this.TOTAL ? '☠ La OLEADA FINAL empieza en ' : 'La oleada ' + (this.n + 1) + ' de ' + this.TOTAL + ' llega en ') + Math.ceil(this.cuenta) + ' s');
       if (this.cuenta <= 0) this.empezar();
       return;
     }
     if (this.fase === 'oleada') {
       this.genT -= dt;
-      const mult = 1 + (this.n - 1) * 0.06;
-      if (this.cola.length && this.genT <= 0 && Robots.vivos.length < this.MAX_VIVOS) {
+      const mult = (1 + (this.n - 1) * 0.06) * (1 + (G.jugadores - 1) * 0.03); // +3% de vida por jugador extra
+      if (this.cola.length && this.genT <= 0 && Robots.vivos.length < this.maxVivos()) {
         const tipo = this.cola.shift();
         const [x, z] = tipo === 'JefeFinal' || tipo === 'Desatado' ? [POS_ARDUNOL[0] * 0.5, POS_ARDUNOL[1] * 0.5] : this.puntoAparicion(TIPOS[tipo].vuela);
         const r = Robots.crear(tipo, x, z, mult);
+        if (r.mech) Mech.entrada(r);
         if (tipo === 'Coloso') HUD.anuncio('¡COLOSO!', 'Si te toca, caes. Mantén distancia', '#ff9a3c');
-        this.genT = tipo === 'Jefe' ? 3 : rand(0.5, 1.1);
+        this.genT = tipo === 'Jefe' ? 3 : rand(0.5, 1.1) / Math.sqrt(1 + (G.jugadores - 1) * 0.1);
         if (tipo === 'Jefe') r.yaw = Math.atan2(x, z);
       }
       const quedan = this.cola.length + Robots.vivos.length;
       HUD.oleada(this.tipo === 'final' ? '☠ OLEADA FINAL ☠' : 'OLEADA ' + this.n + ' / ' + this.TOTAL, '🤖 ' + quedan + ' robots restantes');
       if (quedan === 0 && this.tipo === 'final') {
-        G.puntos += 500; HUD.puntos();
+        sumarPuntos(500);
         Sfx.play('recoger'); Jugador.invulnerable = 999;
         this.fase = 'fin'; Clima.poner('dia');
         HUD.victoria();
@@ -618,10 +649,10 @@ const Oleadas = {
       }
       if (quedan === 0) {
         const bono = 20 * this.n;
-        G.puntos += bono; HUD.puntos();
+        sumarPuntos(bono);
         HUD.anuncio('¡OLEADA SUPERADA!', '+' + bono + ' puntos de bonus', '#3ee08f');
         Jugador.curar(40);
-        this.fase = 'descanso'; this.cuenta = this.DESCANSO;
+        this.fase = 'descanso'; this.cuenta = this.DESCANSO; this.quizEn = 3.2; // después de que se va el anuncio
         Clima.poner('dia');
       }
     }

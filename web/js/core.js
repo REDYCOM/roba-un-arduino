@@ -9,6 +9,12 @@ const G = (window.G = {
   cajas: [],               // colisionadores AABB {min, max, solido, sinBala}
   pads: [],                // trampolines {x, z, r, y}
   calidad: 1,              // 1 alta, 0 baja
+  mods: { vel: 1, dano: 1, cad: 1, escudo: false }, // efectos de las runas
+  aviso: null,             // texto de "Pulsa E..." de este cuadro
+  jugadores: 1,            // jugadores en la partida (máx. 30: 6 equipos de 5)
+  puntos: 0,               // puntaje (suma para tu equipo)
+  canje: 0,                // puntos personales para gastar en la tienda
+  equiposActivos: [1],     // equipos que tienen jugadores
 });
 
 const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -44,6 +50,9 @@ function distSeg(px, pz, ax, az, bx, bz) {
   const t = clamp(((px - ax) * dx + (pz - az) * dz) / (dx * dx + dz * dz), 0, 1);
   return Math.hypot(px - (ax + dx * t), pz - (az + dz * t));
 }
+
+// Todo lo que da puntos suma al puntaje Y a tus puntos para canjear
+function sumarPuntos(n) { G.puntos += n; G.canje += n; HUD.puntos(); }
 
 // ---------------------------------------------------------------------
 //  Entrada

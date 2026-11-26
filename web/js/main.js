@@ -2,6 +2,7 @@
 //  ARRANQUE Y BUCLE PRINCIPAL
 // =====================================================================
 window.iniciarJuego = function () {
+  Mech.cargar(); // jefe final (oleada 8): se descarga mientras juegas
   const app = document.getElementById('app');
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
@@ -15,7 +16,7 @@ window.iniciarJuego = function () {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 2500);
   scene.add(camera);
-  Object.assign(G, { renderer, scene, camera, puntos: 0, bajas: 0, uTiempo: { value: 0 } });
+  Object.assign(G, { renderer, scene, camera, puntos: 0, canje: 0, bajas: 0, uTiempo: { value: 0 } });
 
   // post-proceso: brillo (bloom) para luces, láseres y ojos de robots
   const composer = new ADD.EffectComposer(renderer);
@@ -32,13 +33,44 @@ window.iniciarJuego = function () {
   Clima.crear(scene, renderer);
   FX.crear(scene);
   Armas.init(camera);
+  Componentes.crear(scene);
   HUD.init();
+  Poderes.init();
   HUD.puntos();
   Jugador.revivir();
 
   addEventListener('resize', () => {
     camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+  });
+
+  // ---------- elegir equipo y jugadores ----------
+  const cajaEq = document.getElementById('equiposBtns'), slider = document.getElementById('sliderJug');
+  EQUIPOS.forEach((eq, i) => {
+    const b = document.createElement('button');
+    b.textContent = 'EQUIPO ' + (i + 1); b.style.background = eq.color;
+    if (i === MI_EQUIPO) b.classList.add('sel');
+    b.onclick = () => { MI_EQUIPO = i; for (const x of cajaEq.children) x.classList.remove('sel'); b.classList.add('sel'); };
+    cajaEq.appendChild(b);
+  });
+  slider.oninput = () => { document.getElementById('numJug').textContent = slider.value; };
+  const Partida = (window.Partida = {
+    iniciado: false,
+    iniciar() {
+      if (this.iniciado) return;
+      this.iniciado = true;
+      G.jugadores = +slider.value;
+      // los jugadores llenan equipos de a 5, empezando por el tuyo
+      const k = Math.ceil(G.jugadores / 5);
+      G.equiposActivos = [MI_EQUIPO];
+      for (let i = 1; G.equiposActivos.length < k; i++) G.equiposActivos.push((MI_EQUIPO + i) % EQUIPOS.length);
+      Armas.matManga.color.set(EQUIPOS[MI_EQUIPO].color);
+      Jugador.revivir();
+      Componentes.iniciar();
+      document.getElementById('hudEquipo').textContent = EQUIPOS[MI_EQUIPO].nombre;
+      document.getElementById('hudEquipo').style.color = EQUIPOS[MI_EQUIPO].color;
+      document.getElementById('hudJug').textContent = G.jugadores;
+    },
   });
 
   // ---------- menús ----------
@@ -50,6 +82,7 @@ window.iniciarJuego = function () {
     Sfx.init();
     menu.classList.add('oculto'); hud.classList.remove('oculto');
     G.estado = 'jugando';
+    Partida.iniciar();
     if (Oleadas.fase === 'espera') Oleadas.iniciar();
     bloquear();
   };
@@ -81,16 +114,24 @@ window.iniciarJuego = function () {
       G.t += dt;
       G.uTiempo.value = G.t;
       if (Input.pulso('KeyQ')) { G.calidad = G.calidad ? 0 : 1; aplicarCalidad(); }
+      G.aviso = null;
       if (Torretas.montada) Torretas.updateMontada(dt); else Jugador.update(dt);
       Torretas.update(dt);
       Armas.update(dt);
       Oleadas.update(dt);
+      Componentes.update(dt);
+      Runas.update(dt);
+      Poderes.update(dt);
+      Estacion.update();
+      Tienda.update(dt);
+      Quiz.update(dt);
       Robots.update(dt);
       for (const f of [...G.anim]) f(dt, G.t);
       FX.update(dt);
       Clima.update(dt, scene);
       Agua.update(dt);
       HUD.update(dt);
+      HUD.aviso(G.aviso);
       // si va muy lento varios segundos, baja la calidad sola
       fpsT += dt; fpsN++;
       if (fpsT > 3) { if (fpsN / fpsT < 28 && G.calidad) { lentos++; if (lentos >= 2) { G.calidad = 0; aplicarCalidad(); } } else lentos = 0; fpsT = 0; fpsN = 0; }

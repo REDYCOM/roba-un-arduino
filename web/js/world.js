@@ -8,11 +8,11 @@
 const AGUA_Y = 0;
 const SUELO = 1.6; // altura de las zonas planas (plaza, bases, caminos)
 
-// 5 equipos en pentágono (colores del TeamSelector de Roblox)
+// 6 equipos de 5 jugadores, en hexágono (colores del TeamSelector de Roblox + rosado)
 const ESC_ROBLOX = 0.36;   // metros por stud
 const R_BASES = 88;
-const EQUIPOS = ['#ff5050', '#5096ff', '#50ff50', '#ffc850', '#c850ff'].map((color, i) => {
-  const a = (i / 5) * TAU;
+const EQUIPOS = ['#ff5050', '#5096ff', '#50ff50', '#ffc850', '#c850ff', '#ff78c8'].map((color, i) => {
+  const a = (i / 6) * TAU;
   // la puerta de la base (lado -z local) mira hacia la plaza; giro en múltiplos de 90° (colisiones exactas)
   const giro = Math.round(Math.atan2(Math.cos(a), Math.sin(a)) / (Math.PI / 2)) * (Math.PI / 2);
   return { nombre: 'Equipo ' + (i + 1), color, ang: a, x: Math.cos(a) * R_BASES, z: Math.sin(a) * R_BASES, giro };
@@ -25,11 +25,11 @@ function baseAMundo(eq, lx, lz) {
 for (const eq of EQUIPOS) {
   eq.puerta = baseAMundo(eq, -8.8, -16);  // justo afuera de la reja
 }
-const MI_EQUIPO = 1; // el jugador es del Equipo 2 (azul)
+let MI_EQUIPO = 1; // se elige en el menú (por defecto Equipo 2, azul)
 
 // lugares entre las bases
-const POS_VIGIA = [Math.cos(TAU * 0.3) * 76, Math.sin(TAU * 0.3) * 76];
-const POS_ARDUNOL = [Math.cos(TAU * 0.7) * 78, Math.sin(TAU * 0.7) * 78];
+const POS_VIGIA = [Math.cos(TAU * 0.25) * 72, Math.sin(TAU * 0.25) * 72];
+const POS_ARDUNOL = [Math.cos(TAU * 0.75) * 78, Math.sin(TAU * 0.75) * 78];
 
 const Terreno = {
   TAM: 360, SEG: 220, grid: null, celda: 0,
@@ -48,7 +48,7 @@ const Terreno = {
   estanque: { x: 45, z: 32, r: 11 },
   colinas: [
     { x: POS_ARDUNOL[0], z: POS_ARDUNOL[1], r: 30, h: 13 },
-    { x: -76, z: 0, r: 20, h: 6 },
+    { x: Math.cos(TAU * 7 / 12) * 72, z: Math.sin(TAU * 7 / 12) * 72, r: 18, h: 6 },
   ],
   distCanal(x, z) {
     const k = this.canal;
@@ -758,7 +758,7 @@ const Mapa = {
   },
 
   faroles() {
-    for (const c of Terreno.caminos.slice(0, 6)) {
+    for (const c of Terreno.caminos.slice(0, EQUIPOS.length + 1)) {
       const L = Math.hypot(c.b[0] - c.a[0], c.b[1] - c.a[1]), n = Math.floor(L / 14);
       const dx = (c.b[0] - c.a[0]) / L, dz = (c.b[1] - c.a[1]) / L;
       for (let i = 0; i <= n; i++) {
@@ -789,7 +789,7 @@ const Mapa = {
   // n lugares libres repartidos en un anillo (siempre los mismos: semilla fija)
   lugares(n, rMin, rMax, margen, semilla) {
     const res = [];
-    for (let k = 0; k < 300 && res.length < n; k++) {
+    for (let k = 0; k < Math.max(300, n * 40) && res.length < n; k++) {
       const a = hash2(k, semilla) * TAU, r = lerp(rMin, rMax, hash2(semilla, k));
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
       if (!this.libre(x, z, margen)) continue;

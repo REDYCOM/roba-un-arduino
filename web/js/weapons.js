@@ -5,8 +5,8 @@
 const DEF_ARMAS = [
   { id: 'blaster', nombre: 'Bláster', icono: '🔫', dano: 25, cad: 0.2, auto: true, alcance: 220, disp: 0.006, tipo: 'bala', color: '#4fd8ff', tiene: true, sfx: 'blaster' },
   { id: 'escopeta', nombre: 'Escopeta de chispas', icono: '💥', dano: 18, perdigones: 7, disp: 0.07, cad: 0.9, alcance: 45, tipo: 'bala', color: '#ffb347', tiene: false, sfx: 'escopeta' },
-  { id: 'laser', nombre: 'Láser', icono: '🔆', dano: 100, cad: 0.6, alcance: 300, tipo: 'laser', color: '#ff3df0', tiene: true, sfx: 'laser' },
-  { id: 'bazuca', nombre: 'Bazuca', icono: '🚀', dano: 60, radio: 5, cad: 3.0, vel: 60, tipo: 'cohete', tiene: true, sfx: 'bazuca', lento: 0.85 },
+  { id: 'laser', nombre: 'Láser', icono: '🔆', dano: 100, cad: 0.6, alcance: 300, tipo: 'laser', color: '#ff3df0', tiene: false, sfx: 'laser' },
+  { id: 'bazuca', nombre: 'Bazuca', icono: '🚀', dano: 60, radio: 5, cad: 3.0, vel: 60, tipo: 'cohete', tiene: false, sfx: 'bazuca', lento: 0.85 },
   { id: 'tesla', nombre: 'Pistola Tesla', icono: '🌩️', dano: 50, danoCadena: 35, saltos: 4, radioCadena: 9, cad: 1.1, alcance: 60, tipo: 'tesla', color: '#8fb8ff', tiene: false, sfx: 'tesla' },
   { id: 'granada', nombre: 'Granada condensador', icono: '🔋', dano: 75, radio: 4.5, cad: 1.5, fusible: 1.8, vel: 22, tipo: 'granada', tiene: false, sfx: 'granada' },
 ];
@@ -33,7 +33,7 @@ const Armas = {
     const B = (c, k = 2.5) => new THREE.MeshBasicMaterial({ color: col(c).multiplyScalar(k) });
     const caja = (sx, sy, sz, mat, x, y, z, padre = g) => { const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat); m.position.set(x, y, z); padre.add(m); return m; };
     const cil = (r1, r2, L, mat, x, y, z, padre = g, seg = 14) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, L, seg), mat); m.rotation.x = Math.PI / 2; m.position.set(x, y, z); padre.add(m); return m; };
-    const piel = M('#f1c27d', { r: 0.8, m: 0 }), manga = M(EQUIPOS[MI_EQUIPO].color, { r: 0.8, m: 0 });
+    const piel = M('#f1c27d', { r: 0.8, m: 0 }), manga = this.matManga || (this.matManga = M(EQUIPOS[MI_EQUIPO].color, { r: 0.8, m: 0 }));
     const mano = (x, y, z, padre = g) => { caja(0.075, 0.09, 0.11, piel, x, y, z, padre); caja(0.09, 0.1, 0.32, manga, x + 0.02, y - 0.03, z + 0.22, padre); };
     const boca = new THREE.Object3D(); g.add(boca);
 
@@ -170,7 +170,7 @@ const Armas = {
 
   disparar() {
     const a = this.actual, o = Jugador.ojo(), boca = this.posBoca();
-    this.enfriar = a.cad;
+    this.enfriar = a.cad * G.mods.cad;
     Sfx.play(a.sfx);
     switch (a.tipo) {
       case 'bala': {
@@ -338,7 +338,8 @@ const Armas = {
     // arriba de la ametralladora no se usan las armas de mano
     if (Torretas.montada) { this.updateProyectiles(dt); return; }
     // cambiar de arma
-    for (let i = 0; i < this.lista.length; i++) if (Input.pulso('Digit' + (i + 1))) this.elegir(i);
+    const respondiendo = Quiz.activa && !Quiz.respondida;
+    for (let i = 0; i < this.lista.length; i++) if (Input.pulso('Digit' + (i + 1)) && !(respondiendo && i < 4)) this.elegir(i);
     if (Input.rueda) {
       const dir = Input.rueda > 0 ? 1 : -1;
       for (let k = 1; k <= this.lista.length; k++) {

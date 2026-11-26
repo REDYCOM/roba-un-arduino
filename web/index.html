@@ -15,6 +15,7 @@
 <div id="hud" class="oculto">
   <div id="vinieta"></div>
   <div id="flashRojo"></div>
+  <div id="escudoFx"></div>
   <div id="mira"><span></span><span></span><span></span><span></span></div>
   <div id="hitmarker"></div>
 
@@ -30,7 +31,9 @@
 
   <div id="puntosBox">
     <div class="fila"><span>⭐ Puntos</span><b id="puntos">0</b></div>
+    <div class="fila"><span>💰 Para canjear</span><b id="canje">0</b></div>
     <div class="fila"><span>🤖 Robots</span><b id="bajas">0</b></div>
+    <div class="fila"><span>👥 <span id="hudEquipo">Equipo 2</span></span><b id="hudJug">1</b></div>
   </div>
   <canvas id="minimapa" width="180" height="180"></canvas>
 
@@ -47,8 +50,13 @@
     <div class="barra fina"><div id="recarga"></div></div>
   </div>
   <div id="hotbar"></div>
+  <div id="runasHud"></div>
+  <div id="poderesHud"></div>
+  <div id="llevando" class="oculto"></div>
+  <div id="infoCard" class="oculto"></div>
 
   <div id="anuncio"></div>
+  <div id="quiz" class="oculto"></div>
   <div id="aviso" class="oculto">Pulsa <kbd>E</kbd> para usar la ametralladora</div>
   <div id="numeros"></div>
 </div>
@@ -68,10 +76,37 @@
       <div><kbd>1-6</kbd> / <kbd>Rueda</kbd> armas</div>
       <div><kbd>Esc</kbd> pausa</div>
       <div><kbd>Q</kbd> calidad</div>
-      <div><kbd>E</kbd> ametralladora</div>
+      <div><kbd>E</kbd> recoger / usar</div>
+      <div><kbd>T</kbd> tienda (en tu base)</div>
+    </div>
+    <div class="elegir">
+      <div class="etq">Elige tu equipo</div>
+      <div id="equiposBtns"></div>
+      <div class="etq">👥 Jugadores en la partida: <b id="numJug">1</b> <small>· máx. 30 (6 equipos de 5)</small></div>
+      <input type="range" id="sliderJug" min="1" max="30" value="1">
+      <div class="nota chica">Por ahora es para probar cómo escala el juego; con el multijugador será automático.</div>
     </div>
     <button id="btnJugar" disabled>Cargando…</button>
-    <div class="nota">Las cajas que sueltan los robots grandes dan armas nuevas.</div>
+    <button id="btnCreditos" class="secundario" onclick="document.getElementById('creditos').classList.remove('oculto')">📜 Créditos</button>
+    <div class="nota">Resuelve los retos de la Estación Arduino de tu base para ganar poderes. Junta las 9 piezas del robot seguidor de línea. Canjea tus puntos en la tienda.</div>
+  </div>
+</div>
+
+<div id="estacion" class="ventanaJuego oculto"></div>
+<div id="tienda" class="ventanaJuego oculto"></div>
+
+<div id="creditos" class="pantalla oculto">
+  <div class="tarjeta chica">
+    <div class="logo chico">CRÉDITOS</div>
+    <div class="creditosTxt">
+      <p><b>🤖 Jefe final</b> — modelo <a href="https://sketchfab.com/3d-models/mech-robot-kw-ii-3e7c3f1584724587b976332ccaf4edb3" target="_blank" rel="noopener">Mech Robot "KW-II"</a>
+        de <a href="https://sketchfab.com/nick_bragg" target="_blank" rel="noopener">nick_bragg</a>, licencia
+        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+        Cambios: comprimido para la web, luces de colores, ataques y animaciones de juego.</p>
+      <p><b>🧊 Motor 3D</b> — <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> (licencia MIT).</p>
+      <p><b>🎮 Juego</b> — Roba un Arduino: bases, robots, retos, piezas y preguntas diseñados para el juego.</p>
+    </div>
+    <button onclick="document.getElementById('creditos').classList.add('oculto')">Volver</button>
   </div>
 </div>
 
@@ -95,6 +130,14 @@
     <p class="historia">Derrotaste a <b>ARDUNOL</b> y recuperaste el <b>ARDUINO SUPREMO</b>. ¡La isla vuelve a ser libre!</p>
     <div class="controles"><div>⭐ Puntos: <b id="vicPuntos">0</b></div><div>🤖 Robots: <b id="vicBajas">0</b></div><div>⏱ Tiempo: <b id="vicTiempo">0:00</b></div></div>
     <button onclick="location.reload()">Jugar otra vez</button>
+    <details class="creditosVic"><summary>📜 Créditos</summary><div class="creditosTxt">
+      <p><b>🤖 Jefe final</b> — modelo <a href="https://sketchfab.com/3d-models/mech-robot-kw-ii-3e7c3f1584724587b976332ccaf4edb3" target="_blank" rel="noopener">Mech Robot "KW-II"</a>
+        de <a href="https://sketchfab.com/nick_bragg" target="_blank" rel="noopener">nick_bragg</a>, licencia
+        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>.
+        Cambios: comprimido para la web, luces de colores, ataques y animaciones de juego.</p>
+      <p><b>🧊 Motor 3D</b> — <a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> (licencia MIT).</p>
+      <p><b>🎮 Juego</b> — Roba un Arduino: bases, robots, retos, piezas y preguntas diseñados para el juego.</p>
+    </div></details>
   </div>
 </div>
 
@@ -121,17 +164,20 @@
   }
   try {
     const THREE = await import('three');
-    const [{ mergeGeometries }, { EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }] = await Promise.all([
+    const [{ mergeGeometries }, { EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }, { GLTFLoader }, { MeshoptDecoder }, SkeletonUtils] = await Promise.all([
       import('three/addons/utils/BufferGeometryUtils.js'),
       import('three/addons/postprocessing/EffectComposer.js'),
       import('three/addons/postprocessing/RenderPass.js'),
       import('three/addons/postprocessing/UnrealBloomPass.js'),
       import('three/addons/postprocessing/OutputPass.js'),
+      import('three/addons/loaders/GLTFLoader.js'),
+      import('three/addons/libs/meshopt_decoder.module.js'),
+      import('three/addons/utils/SkeletonUtils.js'),
     ]);
     window.THREE = THREE;
-    window.ADD = { mergeGeometries, EffectComposer, RenderPass, UnrealBloomPass, OutputPass };
-    const archivos = ['datos/base-equipo.js', 'js/core.js', 'js/audio.js', 'js/world.js', 'js/fx.js', 'js/player.js',
-                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/robots.js', 'js/hud.js', 'js/main.js'];
+    window.ADD = { mergeGeometries, EffectComposer, RenderPass, UnrealBloomPass, OutputPass, GLTFLoader, MeshoptDecoder, SkeletonUtils };
+    const archivos = ['datos/base-equipo.js', 'datos/componentes.js', 'js/core.js', 'js/audio.js', 'js/world.js', 'js/fx.js', 'js/player.js',
+                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/jefe-mech.js', 'js/robots.js', 'js/componentes.js', 'js/runas.js', 'js/poderes.js', 'js/preguntas.js', 'js/retos.js', 'js/tienda.js', 'js/hud.js', 'js/main.js'];
     for (const f of archivos) {
       await new Promise((ok, mal) => {
         const s = document.createElement('script');

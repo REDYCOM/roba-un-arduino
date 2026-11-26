@@ -23,6 +23,8 @@ const Jugador = {
 
   danar(cant, origen, tipo) {
     if (this.muerto || this.invulnerable > 0 || G.estado !== 'jugando') return;
+    // runa ESCUDO: no te hacen daño, solo chispas azules
+    if (G.mods.escudo) { FX.chispazo(this.centro(), '#50aaff', 10, 4); HUD.escudoGolpe(); return; }
     this.vida -= cant;
     this.ultimoDano = G.t;
     Sfx.play('dano');
@@ -36,6 +38,7 @@ const Jugador = {
       this.vel.y = Math.max(this.vel.y, cant >= 25 ? 6 : 4);
       this.enSuelo = false;
     }
+    Componentes.alRecibirDano(cant);
     if (this.vida <= 0) {
       this.vida = 0; this.muerto = true; this.cuentaRevivir = 4;
       HUD.muerte(true, tipo);
@@ -69,7 +72,9 @@ const Jugador = {
     if (Input.tecla('KeyD') || Input.tecla('ArrowRight')) fx += 1;
     const corre = Input.tecla('ShiftLeft') || Input.tecla('ShiftRight');
     const enAgua = this.pos.y < AGUA_Y - 0.5;
-    let vel = (corre && fz < 0 ? 11 : 7) * (enAgua ? 0.55 : 1) * (Armas.actual?.lento || 1);
+    let vel = (corre && fz < 0 ? 11 : 7) * (enAgua ? 0.55 : 1) * (Armas.actual?.lento || 1) * G.mods.vel;
+    const volando = Poderes.volando;
+    if (volando) vel = 16 * G.mods.vel; // Shift sirve para bajar, no para correr
     const len = Math.hypot(fx, fz);
     const deseo = V3();
     if (len > 0) {
@@ -77,12 +82,20 @@ const Jugador = {
       const s = Math.sin(this.yaw), c = Math.cos(this.yaw);
       deseo.set((fx * c + fz * s) * vel, 0, (-fx * s + fz * c) * vel);
     }
-    const acel = this.enSuelo ? 14 : 3.5;
+    const acel = this.enSuelo ? 14 : volando ? 8 : 3.5;
     this.vel.x = damp(this.vel.x, deseo.x, acel, dt);
     this.vel.z = damp(this.vel.z, deseo.z, acel, dt);
 
-    if (this.enSuelo && Input.pulso('Space')) { this.vel.y = 8; this.enSuelo = false; Sfx.play('salto'); }
-    this.vel.y -= 24 * dt;
+    if (volando) {
+      // estilo Superman: estable, sin caerse
+      const sube = (Input.tecla('Space') ? 1 : 0) - (Input.tecla('ShiftLeft') || Input.tecla('ShiftRight') ? 1 : 0);
+      this.vel.y = damp(this.vel.y, sube * 10, 6, dt);
+      if (this.pos.y > 75 && this.vel.y > 0) this.vel.y = 0;
+      if (Math.random() < dt * 20) FX.chispas.emitir(this.pos.x + rand(-0.3, 0.3), this.pos.y + 0.3, this.pos.z + rand(-0.3, 0.3), 0, -2, 0, FX.c('#9fdcff', 2), 0.06, 0.4);
+    } else {
+      if (this.enSuelo && Input.pulso('Space')) { this.vel.y = 8; this.enSuelo = false; Sfx.play('salto'); }
+      this.vel.y -= 24 * dt;
+    }
     if (enAgua) this.vel.y = Math.max(this.vel.y, -3);
 
     // integrar en sub-pasos para no atravesar paredes

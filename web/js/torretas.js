@@ -64,13 +64,12 @@ const Torretas = {
   },
 
   update(dt) {
-    const aviso = document.getElementById('aviso');
-    if (this.montada) { aviso.classList.add('oculto'); return; }
+    if (this.montada) return;
     let cerca = null;
     if (!Jugador.muerto) for (const t of this.lista) {
       if (Math.hypot(Jugador.pos.x - t.pos.x, Jugador.pos.z - t.pos.z) < 2.6) { cerca = t; break; }
     }
-    aviso.classList.toggle('oculto', !cerca);
+    if (cerca) G.aviso = 'Pulsa <kbd>E</kbd> para usar la ametralladora';
     if (cerca && Input.pulso('KeyE') && G.t - (this.bajoEn || -9) > 0.4) this.subir(cerca);
     // las que nadie usa se enfrían y vuelven a mirar al frente
     for (const t of this.lista) {
@@ -119,7 +118,7 @@ const Torretas = {
     const disparando = Input.mouseAbajo && Input.bloqueado && !this.trabada;
     t.giro = damp(t.giro, disparando ? 40 : 0, 4, dt);
     t.barriles.rotation.z += t.giro * dt;
-    while (disparando && this.enfriar <= 0) { this.enfriar += this.CAD; this.disparar(t); }
+    while (disparando && this.enfriar <= 0) { this.enfriar += this.CAD * G.mods.cad; this.disparar(t); }
     if (!disparando) this.enfriar = Math.max(this.enfriar, 0);
     this.calor = Math.max(0, this.calor - dt * this.ENFRIA * (disparando ? 0.2 : 1));
     if (this.calor >= 0.97 && !this.trabada) { this.trabada = true; Sfx.play('sinMunicion'); HUD.anuncio('🔥 ¡RECALENTADA!', 'Espera a que se enfríe', '#ff7a3c'); }

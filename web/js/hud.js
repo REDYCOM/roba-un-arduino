@@ -68,7 +68,7 @@ const HUD = {
   },
   arma() { if (!this.el.armaNombre) return; this.el.armaNombre.textContent = Armas.actual.nombre; this.hotbar(); },
   recarga(p) { this.el.recarga.style.width = (p * 100).toFixed(1) + '%'; this.el.recarga.style.opacity = p >= 1 ? 0.5 : 1; },
-  puntos() { this.el.puntos.textContent = G.puntos; this.el.bajas.textContent = G.bajas; },
+  puntos() { this.el.puntos.textContent = G.puntos; this.el.bajas.textContent = G.bajas; document.getElementById('canje').textContent = G.canje; },
   oleada(t, s) { if (this._ot !== t) { this.el.oleadaTitulo.textContent = t; this._ot = t; } if (this._os !== s) { this.el.oleadaSub.textContent = s; this._os = s; } },
 
   jefe(nombre, frac) {
@@ -113,6 +113,37 @@ const HUD = {
     requestAnimationFrame(() => { f.style.transition = 'opacity .35s ease-out'; f.style.opacity = 0; });
   },
 
+  aviso(html) {
+    const a = document.getElementById('aviso');
+    if (!html) { a.classList.add('oculto'); this._aviso = null; return; }
+    if (this._aviso !== html) { a.innerHTML = html; this._aviso = html; }
+    a.classList.remove('oculto');
+  },
+
+  // efectos de runas activos (encima de la barra de armas)
+  runas(activas) {
+    const el = document.getElementById('runasHud');
+    const html = Object.entries(activas).map(([n, t]) => {
+      const R = RUNAS[n];
+      return '<div class="runa" style="--c:' + R.color + '"><span>' + R.icono + '</span><b>' + R.nombre + '</b><i>' + Math.ceil(t) + 's</i><u style="width:' + Math.min(100, (t / R.dur) * 100).toFixed(0) + '%"></u></div>';
+    }).join('');
+    if (html !== this._runas) { el.innerHTML = html; this._runas = html; }
+    document.getElementById('escudoFx').style.opacity = G.mods.escudo ? 1 : 0;
+  },
+  escudoGolpe() {
+    const e = document.getElementById('escudoFx');
+    e.classList.remove('golpe'); void e.offsetWidth; e.classList.add('golpe');
+  },
+
+  // tarjeta educativa al recoger un componente
+  info(p) {
+    const c = document.getElementById('infoCard');
+    c.innerHTML = '<div class="ico">' + p.icono + '</div><div><b>' + p.nombre + '</b><p>' + p.info + '</p><small>Llévalo al anillo de tu base</small></div>';
+    c.classList.remove('oculto', 'sale'); void c.offsetWidth;
+    clearTimeout(this._infoT);
+    this._infoT = setTimeout(() => c.classList.add('sale'), 6000);
+  },
+
   victoria() {
     const v = document.getElementById('victoria');
     document.getElementById('vicPuntos').textContent = G.puntos;
@@ -133,6 +164,9 @@ const HUD = {
   cuentaMuerte(n) { this.el.muerteCuenta.textContent = Math.max(0, n); },
 
   update(dt) {
+    const ll = document.getElementById('llevando');
+    if (Componentes.llevando) { const p = Componentes.llevando; const txt = p.icono + ' Llevas: ' + p.nombre + ' → a tu base'; if (ll.textContent !== txt) ll.textContent = txt; ll.classList.remove('oculto'); }
+    else ll.classList.add('oculto');
     const v = Jugador.vida / Jugador.vidaMax;
     this.el.vida.style.width = (v * 100).toFixed(1) + '%';
     this.el.vidaNum.textContent = Math.ceil(Jugador.vida);

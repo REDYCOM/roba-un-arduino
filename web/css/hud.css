@@ -23,6 +23,98 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--fondo)
 
 #aviso { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--borde);
   border-radius: 12px; padding: 6px 16px; font-size: 18px; backdrop-filter: blur(6px); animation: entra .2s ease-out; }
+#escudoFx { position: absolute; inset: 0; opacity: 0; transition: opacity .3s;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(80, 170, 255, 0.35) 100%);
+  box-shadow: inset 0 0 60px rgba(80, 170, 255, 0.5); }
+#escudoFx.golpe { animation: escudo .35s ease-out; }
+@keyframes escudo { 0% { box-shadow: inset 0 0 140px rgba(140, 210, 255, 0.95); } 100% { box-shadow: inset 0 0 60px rgba(80, 170, 255, 0.5); } }
+#runasHud { position: absolute; right: 14px; bottom: 120px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+#runasHud .runa { position: relative; display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--c);
+  border-radius: 10px; padding: 2px 10px; overflow: hidden; box-shadow: 0 0 12px color-mix(in srgb, var(--c) 45%, transparent); }
+#runasHud .runa span { font-size: 18px; } #runasHud .runa b { color: var(--c); font-size: 15px; } #runasHud .runa i { font-style: normal; font-size: 14px; min-width: 28px; text-align: right; }
+#runasHud .runa u { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--c); }
+#llevando { position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%); background: rgba(54,197,255,.2); border: 1px solid #36c5ff;
+  border-radius: 12px; padding: 4px 16px; font-size: 18px; font-weight: 700; box-shadow: 0 0 16px rgba(54,197,255,.45); }
+#infoCard { position: absolute; left: 14px; top: 110px; width: 330px; display: flex; gap: 12px; align-items: flex-start; background: rgba(10,16,32,.78);
+  border: 1px solid #36c5ff; border-radius: 14px; padding: 12px 14px; animation: entraIzq .35s ease-out; backdrop-filter: blur(6px); }
+#infoCard.sale { animation: saleIzq .4s ease-in forwards; }
+#infoCard .ico { font-size: 38px; line-height: 1; }
+#infoCard b { font-size: 19px; color: #36c5ff; } #infoCard p { margin: 2px 0 4px; font-size: 15px; line-height: 1.25; } #infoCard small { color: var(--tenue); }
+@keyframes entraIzq { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
+@keyframes saleIzq { to { opacity: 0; transform: translateX(-30px); } }
+/* ---------- poderes (lateral izquierdo) ---------- */
+#poderesHud { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 4px; }
+#poderesHud .poder { position: relative; width: 38px; height: 34px; border-radius: 9px; background: var(--panel); border: 1px solid var(--borde);
+  display: flex; align-items: center; justify-content: center; font-size: 18px; filter: grayscale(1); opacity: .45; }
+#poderesHud .poder i { position: absolute; right: -4px; bottom: -4px; font-size: 10px; font-style: normal; }
+#poderesHud .poder.activo { filter: none; opacity: 1; border-color: var(--oro); box-shadow: 0 0 10px rgba(255,207,74,.45); }
+
+/* ---------- ventanas de la estación y la tienda ---------- */
+.ventanaJuego { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(4,8,18,.55); z-index: 5; }
+.ventanaJuego .ventana { width: min(980px, 100%); max-height: 94vh; overflow: auto; background: #0f1830; border: 1px solid #2c3d66; border-radius: 18px; padding: 14px 18px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+.ventanaJuego .cab { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #23335a; padding-bottom: 8px; }
+.ventanaJuego .cab b { font-size: 22px; } .ventanaJuego .cab span { color: var(--tenue); flex: 1; font-size: 15px; }
+.ventanaJuego .x { font-size: 18px; padding: 4px 12px; border-radius: 10px; background: #2a3658; color: #fff; box-shadow: none; }
+.ventanaJuego h2 { margin: 10px 0 0; font-size: 26px; } .ventanaJuego .desc { margin: 2px 0 10px; color: var(--tenue); font-size: 16px; }
+.ventanaJuego .cuerpo { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
+.ventanaJuego .seccion { margin: 8px 0 5px; font-weight: 800; font-size: 16px; } .ventanaJuego .seccion small { color: var(--tenue); font-weight: 500; }
+.ventanaJuego .bloque { background: var(--c); border-radius: 8px; padding: 7px 12px; margin: 4px 0; font-weight: 700; font-size: 15px; color: #fff;
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); white-space: pre; cursor: grab; user-select: none; transition: transform .1s; }
+.ventanaJuego .bloque em { opacity: .6; margin-right: 8px; font-style: normal; }
+.ventanaJuego .bloque.fijo { cursor: default; opacity: .85; }
+.ventanaJuego .bloque.moviendo { opacity: .4; } .ventanaJuego .bloque.encima { transform: translateX(10px); outline: 2px dashed #fff; }
+.ventanaJuego .bloque.corriendo { outline: 3px solid #fff; box-shadow: 0 0 16px #fff; }
+.ventanaJuego .placa { display: flex; flex-direction: column; gap: 10px; }
+.ventanaJuego .arduino { background: linear-gradient(160deg, #0a7f8c, #075f69); border-radius: 12px; padding: 14px; border: 2px solid #0bb; }
+.ventanaJuego .leds { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+.ventanaJuego .led { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 13px; }
+.ventanaJuego .led i { width: 30px; height: 30px; border-radius: 50%; background: color-mix(in srgb, var(--c) 25%, #222); border: 2px solid rgba(255,255,255,.3); transition: all .1s; }
+.ventanaJuego .led.on i { background: var(--c); box-shadow: 0 0 18px var(--c), 0 0 40px var(--c); }
+.ventanaJuego .led.fiesta i { animation: fiesta .3s infinite alternate; }
+@keyframes fiesta { from { background: var(--c); box-shadow: 0 0 22px var(--c); } to { background: #222; box-shadow: none; } }
+.ventanaJuego .pulsador { margin-top: 10px; text-align: center; font-size: 14px; }
+.ventanaJuego .consola { background: #050a14; border-radius: 10px; padding: 8px 10px; font-family: Consolas, monospace; font-size: 13px; color: #3ee08f; height: 130px; overflow: auto; }
+.ventanaJuego .pie { display: flex; align-items: center; gap: 12px; margin-top: 12px; border-top: 1px solid #23335a; padding-top: 10px; }
+.ventanaJuego .pie span { flex: 1; font-size: 16px; } .ventanaJuego .pie button { font-size: 18px; padding: 8px 24px; }
+.ventanaJuego .saldo { margin: 10px 0; font-size: 18px; } .ventanaJuego .saldo b { color: var(--oro); font-size: 22px; }
+.ventanaJuego .grupo { margin: 10px 0 4px; font-weight: 800; color: var(--tenue); }
+.ventanaJuego .item { display: flex; align-items: center; gap: 12px; background: #16213e; border: 1px solid #263559; border-radius: 12px; padding: 8px 12px; margin: 5px 0; }
+.ventanaJuego .item .ico { font-size: 28px; width: 36px; text-align: center; } .ventanaJuego .item .txt { flex: 1; }
+.ventanaJuego .item p { margin: 0; color: var(--tenue); font-size: 14px; } .ventanaJuego .item b { font-size: 17px; }
+.ventanaJuego .item button { font-size: 16px; padding: 6px 16px; min-width: 110px; }
+.ventanaJuego .item button.falta { background: #3a3f52; color: #9aa3bd; box-shadow: none; }
+.ventanaJuego .item.no button:not(.falta) { background: #1f6b45; color: #d8ffe9; box-shadow: none; }
+@media (max-width: 760px) { .ventanaJuego .cuerpo { grid-template-columns: 1fr; } }
+/* ---------- pregunta rápida entre oleadas ---------- */
+#quiz { position: absolute; top: 78px; left: 50%; transform: translateX(-50%); width: min(620px, 92vw); background: rgba(12,20,42,.88);
+  border: 2px solid var(--oro); border-radius: 16px; padding: 10px 16px 12px; box-shadow: 0 0 24px rgba(255,207,74,.35); animation: quizEntra .3s ease-out; pointer-events: auto; }
+@keyframes quizEntra { from { opacity: 0; transform: translate(-50%, -14px); } to { opacity: 1; transform: translate(-50%, 0); } }
+#quiz.sale { animation: saleArriba .4s ease-in forwards; }
+@keyframes saleArriba { to { opacity: 0; transform: translate(-50%, -20px); } }
+#quiz .tit { font-weight: 800; color: var(--oro); font-size: 17px; } #quiz .tit span { color: var(--tenue); font-weight: 500; font-size: 13px; margin-left: 8px; }
+#quiz .preg { font-size: 20px; font-weight: 700; margin: 4px 0 8px; }
+#quiz .ops { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#quiz .op { background: #1b2748; border: 1px solid #2f4170; border-radius: 10px; padding: 5px 10px; font-size: 15px; cursor: pointer; }
+#quiz .op kbd { margin-right: 6px; }
+#quiz .op.bien, .ventanaJuego .opcion.bien { background: #1f7a4a; border-color: #3ee08f; }
+#quiz .op.mal, .ventanaJuego .opcion.mal { background: #7a1f2a; border-color: #ff4d5e; }
+#quiz .exp { font-size: 14px; margin: 6px 0 4px; min-height: 18px; } #quiz .barra { margin-top: 4px; } #quizT { background: var(--oro); transition: none; }
+
+/* ---------- pestañas y opciones de la estación ---------- */
+.ventanaJuego .tabs { display: flex; gap: 8px; margin: 10px 0 2px; }
+.ventanaJuego .tabs button { font-size: 15px; padding: 6px 14px; border-radius: 10px; background: #22305a; color: #cfd8f2; box-shadow: none; }
+.ventanaJuego .tabs button.sel { background: linear-gradient(180deg, #5fd6ff, #22a6e6); color: #04121f; }
+.ventanaJuego .opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 4px; }
+.ventanaJuego .opcion { text-align: left; font-size: 17px; font-weight: 700; padding: 12px 14px; border-radius: 12px; background: #1b2748; color: #fff;
+  border: 1px solid #2f4170; box-shadow: none; }
+.ventanaJuego .opcion:hover { background: #24345f; }
+@media (max-width: 640px) { #quiz .ops, .ventanaJuego .opciones { grid-template-columns: 1fr; } }
+/* ---------- créditos ---------- */
+#creditos { z-index: 20; }
+button.secundario { display: block; margin: 8px auto 0; font-size: 15px; padding: 6px 18px; background: #2a3658; color: #dfe6ff; box-shadow: none; }
+.creditosTxt { text-align: left; font-size: 15px; line-height: 1.45; margin: 10px 0 14px; }
+.creditosTxt p { margin: 8px 0; } .creditosTxt a { color: #5fd6ff; }
+.creditosVic { margin-top: 12px; color: var(--tenue); } .creditosVic summary { cursor: pointer; }
 #flashRojo { position: absolute; inset: 0; background: rgba(255, 30, 40, 1); opacity: 0; mix-blend-mode: screen; }
 #mira { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
 #mira span { position: absolute; background: #fff; box-shadow: 0 0 3px rgba(0,0,0,.8); border-radius: 2px; transition: transform .06s; }
@@ -112,6 +204,16 @@ button { font-family: inherit; font-size: 22px; font-weight: 800; color: #04121f
 button:hover:not(:disabled) { filter: brightness(1.1); }
 button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 3px 0 #11709e; }
 button:disabled { filter: grayscale(.7); opacity: .7; cursor: wait; }
+.elegir { margin: 0 0 18px; }
+.elegir .etq { font-size: 17px; margin: 6px 0; color: var(--texto); }
+.elegir .etq small { color: var(--tenue); font-size: 14px; }
+#equiposBtns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 10px; }
+#equiposBtns button { font-size: 15px; padding: 8px 4px; border-radius: 10px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  box-shadow: 0 4px 0 rgba(0,0,0,.35); border: 3px solid transparent; }
+#equiposBtns button.sel { border-color: #fff; box-shadow: 0 0 16px rgba(255,255,255,.6), 0 4px 0 rgba(0,0,0,.35); transform: translateY(-2px); }
+#sliderJug { width: 100%; accent-color: var(--acento); }
+.nota.chica { margin-top: 4px; font-size: 13px; }
+@media (max-width: 560px) { #equiposBtns { grid-template-columns: repeat(3, 1fr); } }
 .nota { margin-top: 16px; color: var(--tenue); font-size: 14px; }
 
 @media (max-width: 700px) {
