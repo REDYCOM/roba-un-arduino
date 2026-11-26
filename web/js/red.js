@@ -142,7 +142,9 @@ const Red = {
     const boca = Avatar.bocaArma(j.av);
     const dir = V3(-Math.sin(j.yaw) * Math.cos(j.pitch), Math.sin(j.pitch), -Math.cos(j.yaw) * Math.cos(j.pitch));
     const fin = j.ojo().addScaledVector(dir, Math.min(30, rayoMundo(j.ojo(), dir, 30)));
-    FX.segmento(boca, fin, 0.025, EQUIPOS[j.equipo].color, 0.06, 3.5);
+    FX.segmento(boca, fin, 0.035, EQUIPOS[j.equipo].color, 0.07, 3.5);
+    FX.segmento(boca, fin, 0.011, '#ffffff', 0.05, 5);
+    FX.chispazo(boca, EQUIPOS[j.equipo].color, 4, 3, 0.06);
   },
 
   // ---------- eventos ----------

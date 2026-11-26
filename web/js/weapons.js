@@ -13,7 +13,7 @@ const DEF_ARMAS = [
 
 const Armas = {
   lista: DEF_ARMAS, idx: 0, actual: null, enfriar: 0, retroceso: 0, apunta: false,
-  cambio: 0, swayX: 0, swayY: 0, proyectiles: [], ray: new THREE.Raycaster(), soporte: null, modelos: {},
+  cambio: 0, swayX: 0, swayY: 0, fogonazo: 0, anilloT: 0, ladoKick: 0, proyectiles: [], ray: new THREE.Raycaster(), soporte: null, modelos: {},
 
   init(camera) {
     this.soporte = new THREE.Group();
@@ -42,8 +42,17 @@ const Armas = {
         const cuerpo = M('#2b3550'), claro = M('#c9d3e6', { m: 0.7, r: 0.3 });
         caja(0.075, 0.1, 0.34, cuerpo, 0, 0, -0.1);
         caja(0.06, 0.04, 0.3, claro, 0, 0.065, -0.11);
-        cil(0.024, 0.028, 0.18, claro, 0, 0.005, -0.33);
+        partes.canon = cil(0.024, 0.028, 0.18, claro, 0, 0.005, -0.33);
         partes.celda = caja(0.03, 0.05, 0.12, B('#4fd8ff'), 0, 0.1, -0.05);
+        // fogonazo: brillo + estrella de 4 puntas + anillo de energía que se abre
+        const aditivo = (c, k) => new THREE.MeshBasicMaterial({ color: col(c).multiplyScalar(k), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+        const fog = new THREE.Sprite(new THREE.SpriteMaterial({ map: Terror.textura(), color: col('#7fe6ff').multiplyScalar(4), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+        fog.position.set(0, 0.005, -0.45); fog.visible = false; g.add(fog); partes.fogonazo = fog;
+        const estrella = new THREE.Group(); estrella.position.copy(fog.position); estrella.visible = false; g.add(estrella);
+        for (const r of [0, Math.PI / 2]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.045), aditivo('#bff4ff', 4)); p.rotation.z = r; estrella.add(p); }
+        partes.estrella = estrella;
+        const anillo = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.006, 6, 28), aditivo('#4fd8ff', 3.5));
+        anillo.position.set(0, 0.005, -0.46); anillo.visible = false; g.add(anillo); partes.anillo = anillo;
         caja(0.078, 0.02, 0.2, B('#4fd8ff', 2), 0, -0.02, -0.12);
         const mango = caja(0.06, 0.15, 0.07, cuerpo, 0, -0.1, 0.03); mango.rotation.x = 0.25;
         mano(0, -0.13, 0.05);
@@ -180,9 +189,14 @@ const Armas = {
           const d = this.direccion(a.disp);
           const t = this.trazar(o, d, a.alcance);
           const fin = t.robots.length ? t.robots[0].punto : o.clone().addScaledVector(d, t.fin);
-          FX.segmento(boca, fin, n > 1 ? 0.018 : 0.03, a.color, n > 1 ? 0.08 : 0.06, 3.5);
+          if (a.id === 'blaster') {
+            // rayo de energía: halo azul + núcleo blanco
+            FX.segmento(boca, fin, 0.045, a.color, 0.07, 3.5);
+            FX.segmento(boca, fin, 0.013, '#ffffff', 0.05, 5);
+          } else FX.segmento(boca, fin, n > 1 ? 0.018 : 0.03, a.color, n > 1 ? 0.08 : 0.06, 3.5);
           if (t.robots.length) {
             const h = t.robots[0];
+            if (a.id === 'blaster') { FX.chispazo(h.punto, a.color, 7, 4, 0.1); FX.luz(h.punto, a.color, 4, 4, 0.06); }
             Robots.danar(h.robot, a.dano * (h.critico ? 1.5 : 1), h.punto, h.critico);
           } else if (t.pared) {
             FX.chispazo(fin, a.color, n > 1 ? 3 : 6, 5, 0.12); Sfx.play('impacto', fin.distanceTo(o));
@@ -191,7 +205,11 @@ const Armas = {
         }
         FX.luz(boca, a.color, 6, 6, 0.06);
         FX.chispazo(boca, a.color, n > 1 ? 10 : 4, 3, 0.05);
-        this.retroceso = n > 1 ? 1 : 0.35;
+        this.retroceso = n > 1 ? 1 : a.id === 'blaster' ? 0.6 : 0.35;
+        if (a.id === 'blaster') {
+          this.fogonazo = 0.07; this.anilloT = 0.16; this.ladoKick = rand(-1, 1);
+          this.modelos.blaster.partes.estrella.rotation.z = rand(0, Math.PI);
+        }
         if (n > 1) setTimeout(() => Sfx.play('bomba'), 280);
         break;
       }
@@ -361,6 +379,7 @@ const Armas = {
     const a = this.actual, m = this.modelos[a.id], g = m.grupo, p = m.partes;
     this.retroceso = damp(this.retroceso, 0, 12, dt);
     this.cambio = Math.max(0, this.cambio - dt * 4);
+    this.fogonazo = Math.max(0, this.fogonazo - dt); this.anilloT = Math.max(0, this.anilloT - dt);
     this.swayX = damp(this.swayX, clamp(-Input.dx * 0.0009, -0.06, 0.06), 8, dt);
     this.swayY = damp(this.swayY, clamp(Input.dy * 0.0009, -0.06, 0.06), 8, dt);
     const bob = Jugador.bob, amp = Jugador.bobAmp;
@@ -373,11 +392,24 @@ const Armas = {
       bz + this.retroceso * 0.07);
     g.rotation.x = this.retroceso * 0.12 - this.cambio * 0.6;
     g.rotation.y = this.swayX * 0.8;
-    g.rotation.z = -this.swayX * 1.2;
+    g.rotation.z = -this.swayX * 1.2 + this.ladoKick * this.retroceso * 0.06;
     const prog = 1 - this.enfriar / a.cad;
     const t = G.t;
     switch (a.id) {
-      case 'blaster': p.celda.material.color.setScalar(1.5 + prog * 1.5).multiply(col('#4fd8ff')); break;
+      case 'blaster': {
+        p.celda.material.color.setScalar(1.5 + prog * 1.5).multiply(col('#4fd8ff'));
+        p.canon.position.z = -0.33 + Math.min(this.retroceso, 0.6) * 0.07; // el cañón retrocede
+        const f = this.fogonazo / 0.07, an = this.anilloT / 0.16;
+        p.fogonazo.visible = p.estrella.visible = f > 0;
+        if (f > 0) {
+          p.fogonazo.scale.setScalar(0.14 + (1 - f) * 0.2); p.fogonazo.material.opacity = f;
+          p.estrella.scale.setScalar(0.5 + (1 - f) * 0.9);
+          for (const m of p.estrella.children) m.material.opacity = f;
+        }
+        p.anillo.visible = an > 0;
+        if (an > 0) { p.anillo.scale.setScalar(1 + (1 - an) * 3.5); p.anillo.position.z = -0.46 - (1 - an) * 0.12; p.anillo.material.opacity = an; }
+        break;
+      }
       case 'escopeta': {
         const k = prog > 0.25 && prog < 0.75 ? Math.sin(((prog - 0.25) / 0.5) * Math.PI) : 0;
         p.bomba.position.z = -0.36 + k * 0.1;

@@ -45,7 +45,7 @@ window.iniciarJuego = function () {
   });
 
   // ---------- elegir equipo y jugadores ----------
-  const cajaEq = document.getElementById('equiposBtns'), slider = document.getElementById('sliderJug');
+  const cajaEq = document.getElementById('equiposBtns');
   // ---------- perfil: nombre o apodo + color del soldado (se recuerdan en este navegador) ----------
   const leer = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
   const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
@@ -87,13 +87,12 @@ window.iniciarJuego = function () {
     b.onclick = () => { MI_EQUIPO = i; for (const x of cajaEq.children) x.classList.remove('sel'); b.classList.add('sel'); perfil.previa(); };
     cajaEq.appendChild(b);
   });
-  slider.oninput = () => { document.getElementById('numJug').textContent = slider.value; };
   const Partida = (window.Partida = {
     iniciado: false,
     iniciar() {
       if (this.iniciado) return;
       this.iniciado = true;
-      G.jugadores = +slider.value;
+      G.jugadores = 1; // en una sala, Red lo actualiza con los jugadores reales
       // los jugadores llenan equipos de a 5, empezando por el tuyo
       const k = Math.ceil(G.jugadores / 5);
       G.equiposActivos = [MI_EQUIPO];
