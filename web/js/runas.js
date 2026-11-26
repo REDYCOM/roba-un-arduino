@@ -81,7 +81,8 @@ const Runas = {
     if (r.n === 'Bateria') Jugador.curar(Jugador.vidaMax);
     else this.activas[r.n] = (this.activas[r.n] || 0) + R.dur; // se alarga si repites
     HUD.anuncio(R.icono + ' ' + R.nombre, R.desc, R.color);
-    HUD.feed(R.icono + ' Runa <b>' + R.nombre + '</b>');
+    sumarPuntos(PUNTOS.runa);
+    HUD.feed(R.icono + ' Runa <b>' + R.nombre + '</b> <b>+' + PUNTOS.runa + '</b>');
   },
 
   update(dt) {

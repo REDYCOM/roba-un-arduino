@@ -498,11 +498,6 @@ const Mapa = {
     Obra.cil(fx, SUELO - 0.3, fz, 4.2, 4.2, 0.38, '#' + col('#a7a8ab').lerp(col(eq.color), 0.35).getHexString(), { seg: 40 });
     Obra.anillo(fx, SUELO + 0.1, fz, 4.7, 0.1, eq.color, { intens: 1.8 });
     eq.zona = [fx, fz];
-    const [ex, ez] = baseAMundo(eq, 8, -19);
-    Obra.caja(ex, SUELO, ez, 1.2, 1.4, 1.2, '#5b6478');
-    Obra.caja(ex, SUELO + 1.4, ez, 1.0, 0.8, 1.0, '#7b859c', { solido: false });
-    Obra.bola(ex, SUELO + 2.55, ez, 0.42, '#c7cfdf', { tipo: 'metal' });
-    Obra.bola(ex, SUELO + 3.05, ez, 0.12, eq.color, { tipo: 'brillo', intens: 3, det: 0 });
     eq.bandera = baseAMundo(eq, -15, -19);
     this.decorarBase(eq, idx, giro, y0);
     // ametralladora fija al costado de la base, mirando hacia la plaza
@@ -606,6 +601,37 @@ const Mapa = {
       Obra.bola(x, y + 0.45, z, 0.75, '#3f9a45', { det: 1 });
       Obra.bola(x + 0.2, y + 0.8, z - 0.1, 0.45, '#56b04f', { det: 1 });
     }
+
+    // 10) adentro de la celda, cada una con su letrero:
+    //     ESTACIÓN ARDUINO (retos) en la pared derecha · TIENDA (canje) en la izquierda
+    const kiosco = (lx, lz, lado, colorK, titulo, sub) => {
+      // lado +1: pegado a la pared derecha, mira al centro (-X) · lado -1: pared izquierda, mira a +X
+      pieza(2.6, 3.2, 3.6, lx, 0, lz, '#3a4152', { solido: true, tipo: 'metal' });
+      pieza(2.9, 0.35, 3.9, lx, 3.2, lz, colorK, { tipo: 'brillo', intens: 1.2 });
+      pieza(0.35, 2.4, 3.2, lx - lado * 1.0, 3.55, lz, '#0b1a2a');
+      pieza(0.12, 2.0, 2.8, lx - lado * 1.2, 3.75, lz, colorK, { tipo: 'brillo', intens: 1.6 });
+      for (const s of [-1, 1]) pieza(0.5, 11, 0.5, lx + lado * 0.9, 0, lz + s * 2.2, '#2a2d35', { tipo: 'metal' });
+      const cv = document.createElement('canvas'); cv.width = 512; cv.height = 200;
+      const c = cv.getContext('2d');
+      c.fillStyle = '#0d1220'; c.fillRect(0, 0, 512, 200);
+      c.strokeStyle = colorK; c.lineWidth = 12; c.strokeRect(6, 6, 500, 188);
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      // el texto se achica hasta caber en el cartel
+      const ajustar = (txt, tam, max) => { do { c.font = 'bold ' + tam + 'px "Baloo 2", system-ui, sans-serif'; tam -= 2; } while (c.measureText(txt).width > max && tam > 12); };
+      c.fillStyle = '#ffffff'; ajustar(titulo, 62, 460); c.fillText(titulo, 256, 76);
+      c.fillStyle = colorK; ajustar(sub, 36, 460); c.fillText(sub, 256, 148);
+      const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+      const letrero = new THREE.Mesh(new THREE.PlaneGeometry(7.5 * S, 2.93 * S), new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(1.4, 1.4, 1.4) }));
+      const [x, y, z] = mundo(lx + lado * 0.6, 9.4, lz);
+      letrero.position.set(x, y, z);
+      letrero.rotation.y = eq.giro - lado * (Math.PI / 2 + 0.6); // girado hacia la puerta: se lee al entrar y desde el centro
+      this.pendientes.push(letrero);
+      const [ax, ay, az] = mundo(lx - lado * 2.9, 0, lz);
+      Obra.anillo(ax, ay + 0.05, az, 1.1, 0.07, colorK, { intens: 2 });
+      return [ax, az]; // donde se para el jugador para usarla
+    };
+    eq.puntoEstacion = kiosco(8.6, 2, 1, '#36c5ff', '🧩 ESTACIÓN ARDUINO', 'Retos y preguntas · gana poderes');
+    eq.puntoTienda = kiosco(-10, 2, -1, '#ffcf4a', '🛒 TIENDA', 'Canjea tus puntos 💰');
   },
 
   quitarRejas() {

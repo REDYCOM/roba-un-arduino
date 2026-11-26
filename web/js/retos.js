@@ -67,19 +67,18 @@ const Estacion = {
   COLORES_LED: { 13: '#ff3b3b', 12: '#ffd23b', 11: '#3bff7a', V: '#3bff7a', A: '#ffd23b', R: '#ff3b3b', VP: '#3bff7a' },
   NOMBRES_LED: { 13: 'pin 13', 12: 'pin 12', 11: 'pin 11', V: 'VERDE', A: 'AMARILLO', R: 'ROJO', VP: 'PEATÓN' },
 
-  cerca() {
-    const eq = EQUIPOS[MI_EQUIPO];
-    const [ex, ez] = baseAMundo(eq, 8, -19);
-    return Math.hypot(Jugador.pos.x - ex, Jugador.pos.z - ez) < 3.2;
-  },
-
+  // las dos terminales están adentro de tu base (ver Mapa.decorarBase)
   update() {
-    if (this.abierta || Tienda.abierta || Torretas.montada || Jugador.muerto) return;
-    if (!this.cerca()) return;
-    const sig = this.resueltos < RETOS.length ? 'Reto ' + (this.resueltos + 1) : 'todos resueltos ✅';
-    G.aviso = '<kbd>E</kbd> Estación Arduino (' + sig + ') · <kbd>T</kbd> Tienda';
-    if (Input.pulso('KeyE')) this.abrir();
-    else if (Input.pulso('KeyT')) Tienda.abrir();
+    if (this.abierta || Tienda.abierta || Info.abierta || Torretas.montada || Jugador.muerto) return;
+    const eq = EQUIPOS[MI_EQUIPO], d = (p) => Math.hypot(Jugador.pos.x - p[0], Jugador.pos.z - p[1]);
+    if (d(eq.puntoEstacion) < 1.5) {
+      const sig = this.resueltos < RETOS.length ? 'reto ' + (this.resueltos + 1) + ' de ' + RETOS.length : 'todos resueltos ✅';
+      G.aviso = '<kbd>E</kbd> 🧩 <b>Estación Arduino</b>: retos y preguntas (' + sig + ')';
+      if (Input.pulso('KeyE')) this.abrir();
+    } else if (d(eq.puntoTienda) < 1.5) {
+      G.aviso = '<kbd>E</kbd> 🛒 <b>Tienda</b>: canjea tus puntos (💰 ' + G.canje + ')';
+      if (Input.pulso('KeyE')) Tienda.abrir();
+    }
   },
 
   modo: 'retos', acertadas: new Set(), preg: null, pregRespondida: false,
@@ -136,7 +135,7 @@ const Estacion = {
     const el = document.getElementById('estacion'), q = this.preg, i = this.pregIdx;
     const yaGano = this.acertadas.has(i);
     el.innerHTML = `<div class="ventana">
-      <div class="cab"><b>🤖 Estación Arduino</b><span>Preguntas de Arduino y electrónica · +20 la primera vez que aciertas cada una</span><button class="x" id="estCerrar">✕</button></div>
+      <div class="cab"><b>🧩 ESTACIÓN ARDUINO</b><span>Preguntas de Arduino y electrónica · +20 la primera vez que aciertas cada una</span><button class="x" id="estCerrar">✕</button></div>
       ${this.pestanas()}
       <h2>${q.p}</h2>
       <div class="opciones">${q.op.map((o, k) => `<button class="opcion" data-k="${k}"><kbd>${k + 1}</kbd> ${o}</button>`).join('')}</div>
@@ -164,7 +163,7 @@ const Estacion = {
     if (this.modo === 'preguntas') return this.dibujarPreguntas();
     const r = this.abierta, el = document.getElementById('estacion');
     if (r.terminado) {
-      el.innerHTML = `<div class="ventana"><div class="cab"><b>🤖 Estación Arduino</b><span></span><button class="x" id="estCerrar">✕</button></div>${this.pestanas()}
+      el.innerHTML = `<div class="ventana"><div class="cab"><b>🧩 ESTACIÓN ARDUINO</b><span></span><button class="x" id="estCerrar">✕</button></div>${this.pestanas()}
         <h2>✅ ¡Completaste los ${RETOS.length} retos!</h2><p class="desc">Ya desbloqueaste los ${PODERES.length} poderes. Sigue sumando puntos con las preguntas.</p></div>`;
       this.conectarPestanas();
       return;
@@ -172,7 +171,7 @@ const Estacion = {
     const leds = r.leds.map((l) => `<div class="led" data-led="${l}" style="--c:${this.COLORES_LED[l]}"><i></i><span>${this.NOMBRES_LED[l]}</span></div>`).join('');
     el.innerHTML = `
       <div class="ventana">
-        <div class="cab"><b>🤖 Estación Arduino</b><span>Reto ${this.actual + 1} de ${RETOS.length} · +${r.puntos} pts · Poder ${r.poder}: ${PODERES[r.poder - 1].icono} ${PODERES[r.poder - 1].nombre}</span><button class="x" id="estCerrar">✕</button></div>
+        <div class="cab"><b>🧩 ESTACIÓN ARDUINO</b><span>Reto ${this.actual + 1} de ${RETOS.length} · +${r.puntos} pts · Poder ${r.poder}: ${PODERES[r.poder - 1].icono} ${PODERES[r.poder - 1].nombre}</span><button class="x" id="estCerrar">✕</button></div>
         ${this.pestanas()}
         <h2>${r.titulo}</h2><p class="desc">${r.descripcion}</p>
         <div class="cuerpo">

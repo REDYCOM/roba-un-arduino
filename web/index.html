@@ -79,7 +79,7 @@
       <div><kbd>Esc</kbd> pausa</div>
       <div><kbd>Q</kbd> calidad</div>
       <div><kbd>E</kbd> recoger / usar</div>
-      <div><kbd>T</kbd> tienda (en tu base)</div>
+      <div><kbd>I</kbd> información</div>
     </div>
     <div class="perfil">
       <canvas id="previa"></canvas>
@@ -103,13 +103,15 @@
       <div class="nota chica">Por ahora es para probar cómo escala el juego; con el multijugador será automático.</div>
     </div>
     <button id="btnJugar" disabled>Cargando…</button>
-    <button id="btnCreditos" class="secundario" onclick="document.getElementById('creditos').classList.remove('oculto')">📜 Créditos</button>
-    <div class="nota">Resuelve los retos de la Estación Arduino de tu base para ganar poderes. Junta las 9 piezas del robot seguidor de línea. Canjea tus puntos en la tienda.</div>
+    <div class="fila2"><button class="secundario" onclick="Info.abrir()">ℹ️ Información</button>
+    <button id="btnCreditos" class="secundario" onclick="document.getElementById('creditos').classList.remove('oculto')">📜 Créditos</button></div>
+    <div class="nota">Empiezas con 🎁 300 puntos para la 🛒 Tienda de tu base. ¿Dudas? Mira ℹ️ Información.</div>
   </div>
 </div>
 
 <div id="estacion" class="ventanaJuego oculto"></div>
 <div id="panelProfe" class="ventanaJuego oculto"></div>
+<div id="info" class="ventanaJuego oculto"></div>
 <div id="pausaProfe" class="oculto"><div>⏸ EL PROFE PAUSÓ LA PARTIDA</div><small>Espera sus instrucciones…</small></div>
 <div id="tienda" class="ventanaJuego oculto"></div>
 
@@ -132,6 +134,7 @@
   <div class="tarjeta chica">
     <div class="logo chico">PAUSA</div>
     <button id="btnSeguir">Seguir jugando</button>
+    <button class="secundario" onclick="Info.abrir()">ℹ️ Información</button>
   </div>
 </div>
 
@@ -195,7 +198,7 @@
     window.THREE = THREE;
     window.ADD = { mergeGeometries, EffectComposer, RenderPass, UnrealBloomPass, OutputPass, GLTFLoader, MeshoptDecoder, SkeletonUtils };
     const archivos = ['datos/base-equipo.js', 'datos/componentes.js', 'js/core.js', 'js/audio.js', 'js/world.js', 'js/fx.js', 'js/player.js',
-                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/jefe-mech.js', 'js/robots.js', 'js/componentes.js', 'js/final.js', 'js/avatar.js', 'js/profe.js', 'js/runas.js', 'js/poderes.js', 'js/preguntas.js', 'js/retos.js', 'js/tienda.js', 'js/hud.js', 'js/main.js'];
+                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/jefe-mech.js', 'js/robots.js', 'js/componentes.js', 'js/final.js', 'js/avatar.js', 'js/profe.js', 'js/info.js', 'js/runas.js', 'js/poderes.js', 'js/preguntas.js', 'js/retos.js', 'js/tienda.js', 'js/hud.js', 'js/main.js'];
     for (const f of archivos) {
       await new Promise((ok, mal) => {
         const s = document.createElement('script');

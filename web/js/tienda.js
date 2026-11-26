@@ -1,5 +1,5 @@
 // =====================================================================
-//  TIENDA (de src/compartido/Catalogo.luau) — [T] en la estación de tu base
+//  TIENDA (de src/compartido/Catalogo.luau) — terminal propia adentro de tu base [E]
 //  Se canjea con los PUNTOS PERSONALES: gastar NO baja el puntaje del equipo.
 //    arma        → tuya para siempre
 //    mejora      → permanente, hasta "max" veces
@@ -45,7 +45,7 @@ const Tienda = {
   dibujar(msg) {
     const el = document.getElementById('tienda');
     const grupos = { consumible: '🧪 Consumibles', mejora: '⬆️ Mejoras permanentes', arma: '🔫 Armas (tuyas para siempre)' };
-    let html = `<div class="ventana"><div class="cab"><b>🛒 Tienda</b><span>Canjea tus puntos personales · gastarlos no baja el puntaje de tu equipo</span><button class="x" id="tiCerrar">✕</button></div>
+    let html = `<div class="ventana"><div class="cab"><b>🛒 TIENDA</b><span>Canjea tus puntos 💰 por armas, mejoras y ayudas · gastarlos no baja el puntaje de tu equipo</span><button class="x" id="tiCerrar">✕</button></div>
       <div class="saldo">💰 Tienes <b>${G.canje}</b> puntos para canjear</div><div class="items">`;
     for (const [tipo, titulo] of Object.entries(grupos)) {
       html += `<div class="grupo">${titulo}</div>`;

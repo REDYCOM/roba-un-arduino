@@ -185,7 +185,8 @@ const Robots = {
             const a = Armas.lista.find((x) => x.id === id);
             HUD.anuncio(a.icono + ' ' + a.nombre.toUpperCase(), '¡Arma nueva! Tecla ' + (Armas.lista.indexOf(a) + 1), '#ffcf4a');
           } else { Jugador.curar(60); HUD.feed('🔋 Caja de energía <b>+60 vida</b>'); }
-        } else { Jugador.curar(30); HUD.feed('🔋 Batería <b>+30 vida</b>'); }
+          sumarPuntos(PUNTOS.caja); HUD.feed('📦 Caja <b>+' + PUNTOS.caja + '</b>');
+        } else { Jugador.curar(30); sumarPuntos(PUNTOS.bateria); HUD.feed('🔋 Batería <b>+30 vida · +' + PUNTOS.bateria + '</b>'); }
         FX.chispazo(b.m.position, '#ffcf4a', 20, 5);
         G.scene.remove(b.m); this.botin.splice(i, 1); continue;
       }
@@ -561,7 +562,19 @@ const Oleadas = {
   // plan de la partida: 8 oleadas
   PLAN: [null, 'normal', 'normal', 'jefe', 'drones', 'morado', 'normal', 'mixta', 'final'],
   TOTAL: 8,
-  iniciar() { this.n = 0; this.fase = 'descanso'; this.cuenta = 10; Clima.poner('dia'); },
+  iniciar() {
+    this.n = 0; Clima.poner('dia');
+    if (G.profe) {
+      // con profe: las rejas esperan su orden (panel F1)
+      this.fase = 'esperaProfe';
+      setTimeout(() => HUD.anuncio('👑 TÚ ABRES LAS REJAS', 'Pulsa F1 → 🔓 Abrir rejas cuando todos estén listos', '#ffcf4a'), 4500);
+    } else { this.fase = 'descanso'; this.cuenta = 10; }
+  },
+  abrirRejas(seg = 10) {
+    if (this.fase !== 'esperaProfe') return;
+    this.fase = 'descanso'; this.cuenta = seg;
+    HUD.anuncio('🔓 ¡EL PROFE ABRE LAS REJAS!', 'En ' + seg + ' segundos empieza la batalla', '#ffcf4a');
+  },
 
   componer() {
     const n = this.n, cola = [];
@@ -659,6 +672,7 @@ const Oleadas = {
   },
 
   update(dt) {
+    if (this.fase === 'esperaProfe') { HUD.oleada('PREPÁRATE', '🔒 Esperando que el profe abra las rejas'); return; }
     if (this.fase === 'descanso') {
       this.cuenta -= dt;
       if (this.quizEn > 0 && (this.quizEn -= dt) <= 0) Quiz.lanzar();

@@ -51,6 +51,16 @@ function distSeg(px, pz, ax, az, bx, bz) {
   return Math.hypot(px - (ax + dx * t), pz - (az + dz * t));
 }
 
+// Puntos que dan los objetos que se recolectan (los usa también el menú de información)
+const PUNTOS = {
+  regalo: 300,          // puntos para canjear al empezar la partida
+  recogerPieza: 20,     // recoger una pieza del robot (la primera vez)
+  entregarPieza: 200,   // llevarla al anillo de tu base
+  repuesto: 60,         // pieza que tu equipo ya tenía
+  robotArmado: 1000,    // las 9 piezas entregadas
+  runa: 15, caja: 30, bateria: 15,
+};
+
 // Todo lo que da puntos suma al puntaje Y a tus puntos para canjear
 function sumarPuntos(n) { G.puntos += n; G.canje += n; G.misPuntos += n; G.puntosEq[MI_EQUIPO] += n; HUD.puntos(); }
 

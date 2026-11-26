@@ -1,7 +1,7 @@
 // =====================================================================
 //  COMPONENTES DEL ROBOT SEGUIDOR DE LÍNEA (modelos de Tinkercad)
 //  - Flotan por el mapa, girando y brillando (como ComponentesBrillan).
-//  - [E] para recoger uno; llévalo al anillo de tu base (+100 puntos).
+//  - [E] para recoger uno (+20); llévalo al anillo de tu base (+200 puntos).
 //  - En tu base hay un holograma del robot: cada pieza que entregas se
 //    vuelve real. Con las 9 piezas, el robot se arma y te ayuda a pelear.
 //  - Si un robot te golpea fuerte mientras llevas una pieza, se te cae.
@@ -97,7 +97,7 @@ const Componentes = {
     this.armado = this.armados[MI_EQUIPO];
   },
 
-  soltar(pieza, x, z, scene = G.scene) {
+  soltar(pieza, x, z, scene = G.scene, sinPremio = false) {
     const y = Terreno.altura(x, z);
     const g = new THREE.Group(); g.position.set(x, y, z);
     const giro = new THREE.Group(); giro.position.y = 1.2; g.add(giro);
@@ -113,9 +113,9 @@ const Componentes = {
     const brillo = new THREE.Mesh(new THREE.CircleGeometry(1.3, 32).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ map: Terror.textura(), color: col('#36c5ff').multiplyScalar(1.2), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     brillo.position.y = 0.06; g.add(brillo);
-    const et = this.etiqueta(pieza.icono + ' ' + pieza.nombre, '+100 puntos'); et.position.y = 2.45; g.add(et);
+    const et = this.etiqueta(pieza.icono + ' ' + pieza.nombre, '+' + PUNTOS.entregarPieza + ' puntos'); et.position.y = 2.45; g.add(et);
     scene.add(g);
-    this.sueltas.push({ pieza, g, giro, a1, a2, pos: V3(x, y, z), t: rand(0, 6) });
+    this.sueltas.push({ pieza, g, giro, a1, a2, pos: V3(x, y, z), t: rand(0, 6), sinPremio });
   },
 
   // holograma del robot armado en el patio de tu base
@@ -165,14 +165,15 @@ const Componentes = {
     m.rotation.set(0.5, 0.6, 0);
     this.mano.add(m);
     Sfx.play('recoger');
-    HUD.feed(s.pieza.icono + ' Recogiste: <b>' + s.pieza.nombre + '</b>. ¡Llévalo a tu base!');
+    if (!s.sinPremio) sumarPuntos(PUNTOS.recogerPieza); // si se te cayó, recogerla de nuevo no da puntos
+    HUD.feed(s.pieza.icono + ' Recogiste: <b>' + s.pieza.nombre + '</b>' + (s.sinPremio ? '' : ' <b>+' + PUNTOS.recogerPieza + '</b>') + '. ¡Llévalo a tu base!');
     HUD.info(s.pieza);
   },
 
   soltarLlevada() {
     if (!this.llevando) return;
     const p = this.llevando; this.llevando = null; this.mano.clear();
-    this.soltar(p, Jugador.pos.x + rand(-1, 1), Jugador.pos.z + rand(-1, 1));
+    this.soltar(p, Jugador.pos.x + rand(-1, 1), Jugador.pos.z + rand(-1, 1), G.scene, true);
     HUD.feed('💥 ¡Se te cayó: <b>' + p.nombre + '</b>!');
   },
 
@@ -180,23 +181,23 @@ const Componentes = {
     const p = this.llevando; this.llevando = null; this.mano.clear();
     // tu equipo ya tenía esa pieza: cuenta como repuesto
     if (this.entregadas.has(p.id)) {
-      sumarPuntos(25); Sfx.play('recoger');
-      HUD.feed(p.icono + ' Tu equipo ya tenía <b>' + p.nombre + '</b>: repuesto <b>+25</b>');
+      sumarPuntos(PUNTOS.repuesto); Sfx.play('recoger');
+      HUD.feed(p.icono + ' Tu equipo ya tenía <b>' + p.nombre + '</b>: repuesto <b>+' + PUNTOS.repuesto + '</b>');
       return;
     }
     this.entregadas.add(p.id);
     for (const m of this.armado.partes[p.id]) { m.material = this.mat; m.castShadow = true; }
-    sumarPuntos(100);
+    sumarPuntos(PUNTOS.entregarPieza);
     Sfx.play('oleada');
     FX.chispazo(this.armado.base.clone().setY(this.armado.base.y + 1), '#36c5ff', 40, 6);
     FX.aro(this.armado.base, 5, '#36c5ff', 0.7);
     this.actualizarEtiqueta();
     const n = this.entregadas.size;
     if (n === PIEZAS.length) {
-      sumarPuntos(500);
-      HUD.anuncio('🤖 ¡ROBOT ARMADO!', '+500 · Tu robot seguidor ahora te ayuda a pelear', '#36c5ff');
+      sumarPuntos(PUNTOS.robotArmado);
+      HUD.anuncio('🤖 ¡ROBOT ARMADO!', '+' + PUNTOS.robotArmado + ' · Tu robot seguidor ahora te ayuda a pelear', '#36c5ff');
       this.aliado = { t: 0, cd: 1 };
-    } else HUD.anuncio(p.icono + ' ¡' + p.nombre.toUpperCase() + ' ENTREGADO!', '+100 · Faltan ' + (PIEZAS.length - n) + ' piezas', '#36c5ff');
+    } else HUD.anuncio(p.icono + ' ¡' + p.nombre.toUpperCase() + ' ENTREGADO!', '+' + PUNTOS.entregarPieza + ' · Faltan ' + (PIEZAS.length - n) + ' piezas', '#36c5ff');
   },
 
   // si te pegan fuerte mientras llevas una pieza, se te cae

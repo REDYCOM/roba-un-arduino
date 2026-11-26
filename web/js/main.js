@@ -58,8 +58,8 @@ window.iniciarJuego = function () {
   // ---------- entrar como profe (con clave) ----------
   const claveZona = document.getElementById('profeClave'), inpClave = document.getElementById('claveProfe');
   document.getElementById('btnSoyProfe').onclick = () => { claveZona.classList.toggle('oculto'); inpClave.focus(); };
-  const probarClave = () => {
-    if (Profe.comprobar(inpClave.value)) {
+  const probarClave = async () => {
+    if (await Profe.comprobar(inpClave.value)) {
       G.profe = true;
       document.getElementById('profeZona').innerHTML = '<div class="profeOk">👑 Modo profe activado · en la partida pulsa <kbd>F1</kbd> para tu panel</div>';
       perfil.previa();
@@ -99,6 +99,9 @@ window.iniciarJuego = function () {
       Armas.matManga.color.set(G.miColor); // tus mangas son del color de tu soldado
       Companeros.iniciar();
       if (G.profe) document.getElementById('insigniaProfe').classList.remove('oculto');
+      // regalo de bienvenida para la tienda
+      G.canje += PUNTOS.regalo; HUD.puntos();
+      HUD.anuncio('🎁 ' + PUNTOS.regalo + ' PUNTOS DE REGALO', 'Canjéalos en la 🛒 Tienda de tu base', '#ffcf4a');
       Jugador.revivir();
       Componentes.iniciar();
       document.getElementById('hudEquipo').textContent = EQUIPOS[MI_EQUIPO].nombre;
@@ -161,6 +164,7 @@ window.iniciarJuego = function () {
       Poderes.update(dt);
       Estacion.update();
       Tienda.update(dt);
+      Info.update();
       Quiz.update(dt);
       Robots.update(dt);
       for (const f of [...G.anim]) f(dt, G.t);

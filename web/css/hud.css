@@ -161,6 +161,21 @@ button.secundario { display: block; margin: 8px auto 0; font-size: 15px; padding
 .mini { display: inline-block; width: 50px; height: 8px; background: #0a1224; border-radius: 4px; overflow: hidden; vertical-align: middle; }
 .mini span { display: block; height: 100%; background: #3ee08f; }
 @media (max-width: 800px) { .ppGrid { grid-template-columns: 1fr; } .ppEstado { grid-template-columns: repeat(2, 1fr); } }
+/* ---------- menú de información ---------- */
+.fila2 { display: flex; gap: 8px; justify-content: center; } .fila2 .secundario { margin: 8px 0 0; }
+#info { z-index: 21; }
+#info .ventana { max-width: 860px; }
+#info .tabs { flex-wrap: wrap; }
+#info .infoTxt { font-size: 16px; line-height: 1.5; margin-top: 8px; }
+#info .infoTxt h3 { margin: 12px 0 4px; font-size: 18px; color: #5fd6ff; }
+#info .infoTxt p { margin: 4px 0; } #info .infoTxt ul { margin: 4px 0; padding-left: 22px; } #info .infoTxt li { margin: 3px 0; }
+#info .tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin: 6px 0; }
+#info .tarj { background: #16213e; border: 1px solid #263559; border-radius: 12px; padding: 8px 10px; font-size: 14px; }
+#info .tarj b { font-size: 15px; } #info .tarj p { margin: 2px 0 0; color: var(--tenue); }
+#info table { border-collapse: collapse; width: 100%; font-size: 15px; margin: 4px 0; }
+#info td { padding: 4px 8px; border-bottom: 1px solid #1d2a4b; } #info td:last-child { text-align: right; font-weight: 800; color: #ffcf4a; white-space: nowrap; }
+#info .chip { display: inline-block; padding: 1px 8px; border-radius: 8px; font-weight: 800; font-size: 13px; }
+#ppRejas button.rejas { background: linear-gradient(180deg, #7dffb0, #22b866); color: #04210f; font-weight: 800; }
 #flashRojo { position: absolute; inset: 0; background: rgba(255, 30, 40, 1); opacity: 0; mix-blend-mode: screen; }
 #mira { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
 #mira span { position: absolute; background: #fff; box-shadow: 0 0 3px rgba(0,0,0,.8); border-radius: 2px; transition: transform .06s; }

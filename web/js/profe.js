@@ -9,7 +9,9 @@
 //  (sin servidor la clave se revisa aquí; con el multijugador la revisará
 //   el servidor y nadie podrá verla)
 // =====================================================================
-const CLAVE_PROFE = 'arduino2026'; // ← cámbiala por la tuya
+// Solo se guarda la "huella" (SHA-256) de la clave, no la clave.
+// Para cambiarla:  node herramientas/clave-profe.mjs "tu clave nueva"
+const HUELLA_CLAVE_PROFE = '5cd5683234c69ddb7dbf56cd2117498bbb1ba1d68938ef269095833c5edc8689';
 
 const DIFICULTADES = [
   { nombre: 'Muy fácil', icono: '🐣', dano: 0.4, vida: 0.5, vel: 0.75, cant: 0.5 },
@@ -24,7 +26,12 @@ const Profe = {
 
   get dif() { return DIFICULTADES[this.nivel]; },
 
-  comprobar(clave) { return clave.trim() === CLAVE_PROFE; },
+  async comprobar(clave) {
+    const datos = new TextEncoder().encode('roba-un-arduino:' + clave.trim());
+    const h = await crypto.subtle.digest('SHA-256', datos);
+    const hex = [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    return hex === HUELLA_CLAVE_PROFE;
+  },
 
   // ---------- dificultad en tiempo real ----------
   ponerDificultad(n) {
@@ -79,7 +86,8 @@ const Profe = {
     if (!el.firstChild) this.armar(el);
     // estado de la partida
     const O = Oleadas, tiempo = Math.floor(G.t / 60) + ':' + String(Math.floor(G.t % 60)).padStart(2, '0');
-    const fase = O.fase === 'descanso' ? (O.n === 0 ? 'Preparándose' : 'Descanso') + ' · ' + Math.ceil(O.cuenta) + ' s'
+    document.getElementById('ppRejas').style.display = O.fase === 'esperaProfe' ? '' : 'none';
+    const fase = O.fase === 'esperaProfe' ? '🔒 Rejas cerradas' : O.fase === 'descanso' ? (O.n === 0 ? 'Preparándose' : 'Descanso') + ' · ' + Math.ceil(O.cuenta) + ' s'
       : O.fase === 'oleada' ? 'Oleada ' + O.n + ' de ' + O.TOTAL : O.fase === 'fin' ? 'Terminada' : 'Esperando';
     document.getElementById('ppEstado').innerHTML =
       `<div><small>Partida</small><b>${fase}</b></div><div><small>Robots vivos</small><b>${Robots.vivos.length}</b></div>` +
@@ -115,6 +123,10 @@ const Profe = {
       <div class="ppGrid">
         <section>
           <div class="seccion">🎮 Partida</div>
+          <div class="ppBotones" id="ppRejas">
+            <button class="rejas" data-acc="rejasYa">🔓 Abrir rejas ya</button>
+            <button class="rejas" data-acc="rejas10">⏱ Abrir rejas en 10 s</button>
+          </div>
           <div class="ppBotones">
             <button id="ppPausa" data-acc="pausa"></button>
             <button data-acc="siguiente">⏭ Siguiente oleada</button>
@@ -153,8 +165,11 @@ const Profe = {
       case 'cerrar': this.cerrar(); return;
       case 'pausa': this.pausar(G.estado !== 'pausaProfe'); return;
       case 'dif': this.ponerDificultad(i); return;
+      case 'rejasYa': O.abrirRejas(3); break;
+      case 'rejas10': O.abrirRejas(10); break;
       case 'siguiente':
-        if (O.fase === 'descanso') O.cuenta = 0.01;
+        if (O.fase === 'esperaProfe') O.abrirRejas(3);
+        else if (O.fase === 'descanso') O.cuenta = 0.01;
         else if (O.fase === 'oleada') { O.cola.length = 0; this.destruirTodo(); }
         HUD.feed('👑 El profe adelantó la oleada');
         break;
