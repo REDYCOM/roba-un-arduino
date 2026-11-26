@@ -210,7 +210,7 @@ window.iniciarJuego = function () {
       Clima.update(dt, scene);
       Agua.update(dt);
     }
-    Armas.soporte.visible = G.estado !== 'menu' && !Torretas.montada;
+    Armas.soporte.visible = G.estado !== 'menu' && !Torretas.montada && !Final.espectador; // eliminado en la gran final: sin arma
     Input.fin();
     composer.render();
   }
