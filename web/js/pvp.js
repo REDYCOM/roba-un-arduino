@@ -1,7 +1,9 @@
 // =====================================================================
 //  PELEA ENTRE JUGADORES (PvP)
-//  - Durante la partida: puedes derribar a los alumnos de OTROS equipos.
-//    A los de tu equipo no les pasa nada. El profe no recibe ni hace daño.
+//  - Solo en el TIEMPO LIBRE entre oleadas (1 minuto): puedes derribar a
+//    los alumnos de OTROS equipos. A los de tu equipo no les pasa nada.
+//    Durante las oleadas no: todos contra los robots.
+//    El profe no recibe ni hace daño.
 //  - En la gran final (final.js): todos contra todos, incluso tu equipo.
 //  Cómo viaja el daño (el servidor solo deja hablar alumno ↔ profe):
 //    el alumno que dispara ve el golpe en su pantalla → se lo avisa al
@@ -12,11 +14,14 @@ const PVP = {
   DANO: 0.6,          // a un jugador le haces el 60 % del daño que le harías a un robot
   PUNTOS_BAJA: 25,    // derribar a un rival da puntos a tu equipo (en la gran final no)
 
+  // ¿es el minuto libre entre oleadas? (la primera preparación no cuenta)
+  tiempoLibre() { return Oleadas.fase === 'descanso' && Oleadas.n >= 1 && !Final.estado; },
+
   // ¿puedo hacerle daño a este jugador de la sala?
   atacable(j) {
     if (!j || !j.listo || j.muerto || j.profe || G.profe) return false;
     if (Final.todosContraTodos()) return Final.combate;
-    if (Final.estado) return false;   // cayó el jefe: hasta que empiece la gran final no se pelea
+    if (!this.tiempoLibre()) return false; // durante las oleadas (y tras caer el jefe) no se pelea
     return j.equipo !== MI_EQUIPO;
   },
   objetivos() { return Red.activa ? Red.proxies().filter((j) => this.atacable(j)) : []; },
@@ -45,7 +50,7 @@ const PVP = {
   reenviar(e, de) {
     const atacante = Red.remotos.get(de), victima = Red.remotos.get(e.id);
     if (!atacante || !victima || atacante === victima || atacante.profe || victima.profe) return;
-    const vale = Final.todosContraTodos() ? Final.combate : !Final.estado && atacante.equipo !== victima.equipo;
+    const vale = Final.todosContraTodos() ? Final.combate : this.tiempoLibre() && atacante.equipo !== victima.equipo;
     if (!vale) return;
     Red.ev({ a: 'herido', c: clamp(+e.c || 0, 0, 150), x: +e.x || 0, y: +e.y || 0, z: +e.z || 0, tp: 'jugador', de, q: atacante.nombre }, victima.id);
   },

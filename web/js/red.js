@@ -169,9 +169,10 @@ const Red = {
         if (Jugador.muerto) break;
         let autor = null;
         if (e.de) {
-          // te pegó otro alumno: a los de tu equipo no les hace daño (salvo en la gran final)
+          // te pegó otro alumno: solo vale en el minuto libre y si es de otro equipo (o en la gran final)
           const quien = this.remotos.get(e.de);
-          if (!quien || (!Final.todosContraTodos() && quien.equipo === MI_EQUIPO)) break;
+          if (!quien) break;
+          if (!Final.todosContraTodos() && (quien.equipo === MI_EQUIPO || !PVP.tiempoLibre())) break;
           autor = { id: e.de, nombre: e.q || quien.nombre };
         }
         Jugador.danar(e.c, V3(e.x, e.y, e.z), e.tp, autor);

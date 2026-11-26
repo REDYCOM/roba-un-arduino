@@ -50,7 +50,8 @@ const Info = {
       <p>Después viene la <b>⚔ GRAN FINAL</b>: todos aparecen alrededor de la plaza y es <b>todos contra todos</b>, incluso contra tu equipo.
       Quien cae queda eliminado. <b>El último en pie se lleva el ARDUINO SUPREMO.</b></p>
       <h3>⚔️ Pelear contra otros equipos</h3>
-      <p>Durante la partida puedes derribar a los alumnos de <b>otros equipos</b> (barra roja ✖). A los de tu equipo (barra verde) no les haces daño.
+      <p>Solo en el <b>minuto libre entre oleadas</b> puedes derribar a los alumnos de <b>otros equipos</b> (barra roja ✖). A los de tu equipo (barra verde) no les haces daño.
+      Durante las oleadas no se pelea entre alumnos: ¡todos contra los robots!
       El profe no recibe daño.</p>`;
   },
 

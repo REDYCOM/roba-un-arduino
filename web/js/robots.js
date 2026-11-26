@@ -730,6 +730,8 @@ const Oleadas = {
     else if (this.tipo === 'jefe') { HUD.anuncio('⚠ OLEADA ' + this.n + ' ⚠', '¡Llega el MEGA-ARDUINO!', '#ff6a3c'); Sfx.play('jefe'); FX.sacudir(0.6); }
     else if (this.tipo === 'drones') { HUD.anuncio('OLEADA ' + this.n, '¡Enjambre de drones!', '#9fe6a0'); Sfx.play('oleada'); }
     else { HUD.anuncio('OLEADA ' + this.n, this.n === 1 ? 'Los robots de ARDUNOL atacan' : this.cola.includes('Coloso') ? '¡Cuidado con el COLOSO!' : 'Más robots en camino', '#36c5ff'); Sfx.play('oleada'); }
+    // en la oleada no se pelea entre alumnos (pvp.js): solo en el minuto libre
+    if (Red.activa) HUD.feed('🛡 En la oleada <b>no</b> se pelea entre alumnos: ¡todos contra los robots!');
   },
 
   puntoAparicion(vuela) {
