@@ -58,7 +58,7 @@ const Info = {
     return `<ul>
       <li>🔒 Al empezar, las <b>rejas de las bases están cerradas</b>: es el momento de prepararte y gastar tus <b>🎁 ${PUNTOS.regalo} puntos de regalo</b> en la Tienda.
         ${G.profe ? 'Tú, como profe, decides cuándo se abren (<kbd>F1</kbd>).' : 'El profe decide cuándo se abren.'}</li>
-      <li>🤖 Son <b>8 oleadas</b> de robots. Entre oleadas hay <b>20 s de descanso</b> con una <b>pregunta rápida</b> (responde con <kbd>1</kbd>-<kbd>4</kbd>).</li>
+      <li>🤖 Son <b>8 oleadas</b> de robots. Entre oleadas hay <b>${Oleadas.DESCANSO} s de tiempo libre</b> para pelear contra otros equipos y resolver retos, con una <b>pregunta rápida</b> (responde con <kbd>1</kbd>-<kbd>4</kbd>).</li>
       <li>⚠️ Oleada 3: <b>MEGA-ARDUINO</b> · Oleada 4: <b>enjambre de drones</b> · Oleada 5: <b>robot morado de ARDUNOL</b> · Oleada 8: <b>ARDUNOL DESATADO</b>
         (mientras viva, manda refuerzos).</li>
       <li>💀 Los robots gigantes (Tanque, Coloso y jefes) te derriban si te tocan: <b>¡mantén distancia!</b></li>

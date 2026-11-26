@@ -626,7 +626,7 @@ const Robots = {
 //  OLEADAS (mismo ritmo que el juego de Roblox)
 // =====================================================================
 const Oleadas = {
-  n: 0, fase: 'espera', cuenta: 10, cola: [], genT: 0, tipo: 'normal', MAX_VIVOS: 18, DESCANSO: 20, quizEn: 0,
+  n: 0, fase: 'espera', cuenta: 10, cola: [], genT: 0, tipo: 'normal', MAX_VIVOS: 18, DESCANSO: 60, quizEn: 0, // DESCANSO = tiempo libre entre oleadas (s)
 
   // plan de la partida: 8 oleadas
   PLAN: [null, 'normal', 'normal', 'jefe', 'drones', 'morado', 'normal', 'mixta', 'final'],
@@ -751,7 +751,7 @@ const Oleadas = {
     if (this.fase === 'descanso') {
       this.cuenta -= dt;
       if (this.quizEn > 0 && (this.quizEn -= dt) <= 0) Quiz.lanzar();
-      HUD.oleada(this.n === 0 ? 'PREPÁRATE' : 'DESCANSO', (this.n === 0 ? 'Las rejas se abren en ' : this.n + 1 === this.TOTAL ? '☠ La OLEADA FINAL empieza en ' : 'La oleada ' + (this.n + 1) + ' de ' + this.TOTAL + ' llega en ') + Math.ceil(this.cuenta) + ' s');
+      this.hudDescanso();
       if (this.cuenta <= 0) this.empezar();
       return;
     }
@@ -784,8 +784,30 @@ const Oleadas = {
     sumarPuntos(bono);
     HUD.anuncio('¡OLEADA SUPERADA!', '+' + bono + ' puntos de bonus', '#3ee08f');
     Jugador.curar(40);
-    this.fase = 'descanso'; this.cuenta = this.DESCANSO; this.quizEn = 3.2; // después de que se va el anuncio
+    this.fase = 'descanso'; this.cuenta = this.DESCANSO; this.quizEn = 7; // la pregunta rápida, después de los anuncios
+    this.aviso10 = false;
     Clima.poner('dia');
+    // tiempo libre entre oleadas: para pelear contra otros equipos y resolver retos
+    const n = this.n;
+    setTimeout(() => {
+      if (this.fase !== 'descanso' || this.n !== n || Final.estado) return;
+      HUD.anuncio('⏱ ' + this.textoTiempo(this.DESCANSO) + ' DE TIEMPO LIBRE', '⚔ Pelea contra otros equipos · 🧩 Resuelve retos en tu base', '#36c5ff');
+      Sfx.play('oleada');
+    }, 3300);
+  },
+
+  textoTiempo(seg) { return seg >= 60 && seg % 60 === 0 ? (seg / 60 === 1 ? '1 MINUTO' : seg / 60 + ' MINUTOS') : seg + ' SEGUNDOS'; },
+
+  // arriba de la pantalla durante el descanso (lo usan el profe y los alumnos)
+  hudDescanso() {
+    const s = Math.ceil(this.cuenta);
+    if (this.n === 0) { HUD.oleada('PREPÁRATE', 'Las rejas se abren en ' + s + ' s'); return; }
+    const reloj = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    const sig = this.n + 1 === this.TOTAL ? '☠ la OLEADA FINAL' : 'la oleada ' + (this.n + 1) + ' de ' + this.TOTAL;
+    HUD.oleada('⏱ TIEMPO LIBRE · ' + reloj, '⚔ Pelea contra otros equipos · 🧩 Resuelve retos · luego ' + (this.n + 1 === this.TOTAL ? '☠ oleada final' : 'oleada ' + (this.n + 1) + '/' + this.TOTAL));
+    // aviso cuando faltan 10 segundos
+    if (this.cuenta > 10.5) this.aviso10 = false;
+    else if (!this.aviso10 && this.cuenta > 0) { this.aviso10 = true; HUD.anuncio('⚠ ¡QUEDAN 10 SEGUNDOS!', '¡Prepárate! Llega ' + sig, '#ff9a3c'); }
   },
 
   // ---------- alumno: la oleada la decide el profe ----------
@@ -799,7 +821,7 @@ const Oleadas = {
     if (this.fase === 'esperaProfe') HUD.oleada('PREPÁRATE', '🔒 Esperando que el profe abra las rejas');
     else if (this.fase === 'descanso') {
       this.cuenta = Math.max(0, this.cuenta - dt);
-      HUD.oleada(this.n === 0 ? 'PREPÁRATE' : 'DESCANSO', (this.n === 0 ? 'Las rejas se abren en ' : this.n + 1 === this.TOTAL ? '☠ La OLEADA FINAL empieza en ' : 'La oleada ' + (this.n + 1) + ' de ' + this.TOTAL + ' llega en ') + Math.ceil(this.cuenta) + ' s');
+      this.hudDescanso();
     } else if (this.fase === 'oleada') HUD.oleada(this.tipo === 'final' ? '☠ OLEADA FINAL ☠' : 'OLEADA ' + this.n + ' / ' + this.TOTAL, '🤖 ' + (this.quedan || 0) + ' robots restantes');
   },
 };
