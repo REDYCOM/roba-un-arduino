@@ -771,7 +771,7 @@ const Oleadas = {
       const quedan = this.cola.length + Robots.vivos.length;
       HUD.oleada(this.tipo === 'final' ? '☠ OLEADA FINAL ☠' : 'OLEADA ' + this.n + ' / ' + this.TOTAL, '🤖 ' + quedan + ' robots restantes');
       if (quedan === 0 && this.tipo === 'final') {
-        // la victoria llega al robar el Arduino (js/final.js)
+        // lo que sigue (equipo ganador y gran final) lo hace js/final.js
         this.fase = 'fin';
         return;
       }

@@ -44,10 +44,14 @@ const Info = {
     return `<p>El mago <b>ARDUNOL</b> creó un robot malvado y le dio el arma más poderosa que existe: el <b>ARDUINO SUPREMO</b>.
       Con su ejército de robots quiere dominar el mundo y destruir <b>el último bastión del Reino Tecnológico</b>.</p>
       <p>Tú eres un soldado del Reino. Junto a tu equipo debes resistir sus ataques, aprender a programar Arduino para ganar poderes,
-      destruir a su robot supremo y <b>robar el Arduino</b> para devolver la paz.</p>
+      destruir a su robot supremo y quedarte con el <b>ARDUINO SUPREMO</b>.</p>
       <h3>🏆 ¿Cómo se gana?</h3>
-      <p>Sobrevive a las <b>8 oleadas</b>. En la última llega <b>ARDUNOL DESATADO</b>: cuando caiga, del lugar sale el ARDUINO SUPREMO.
-      Acércate y pulsa <kbd>E</kbd> para robarlo.</p>`;
+      <p>Sobrevive a las <b>8 oleadas</b>. En la última llega <b>ARDUNOL DESATADO</b>. Cuando caiga, <b>gana el equipo con más puntos</b>.</p>
+      <p>Después viene la <b>⚔ GRAN FINAL</b>: todos aparecen alrededor de la plaza y es <b>todos contra todos</b>, incluso contra tu equipo.
+      Quien cae queda eliminado. <b>El último en pie se lleva el ARDUINO SUPREMO.</b></p>
+      <h3>⚔️ Pelear contra otros equipos</h3>
+      <p>Durante la partida puedes derribar a los alumnos de <b>otros equipos</b> (barra roja ✖). A los de tu equipo (barra verde) no les haces daño.
+      El profe no recibe daño.</p>`;
   },
 
   jugar() {
@@ -95,7 +99,7 @@ const Info = {
       <h3>🧠 Aprender</h3><table>
         ${fila('Reto de la Estación Arduino', `+${Math.min(...RETOS.map((r) => r.puntos))} – ${Math.max(...RETOS.map((r) => r.puntos))}`)}
         ${fila('Pregunta de la Estación (primera vez)', '+20')}${fila('Pregunta rápida entre oleadas', '+' + Quiz.PREMIO)}</table>
-      <h3>🏆 Batalla</h3><table>${fila('Superar una oleada', '+20 × nº de oleada')}${fila('Robar el ARDUINO SUPREMO', '+500')}</table>`;
+      <h3>🏆 Batalla</h3><table>${fila('Superar una oleada', '+20 × nº de oleada')}${fila('Derribar a un alumno de otro equipo', '+' + PVP.PUNTOS_BAJA)}${fila('Ganar la gran final (último en pie)', '+500')}</table>`;
   },
 
   objetos() {
@@ -113,7 +117,7 @@ const Info = {
       ${t('<kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>', 'Moverse')}${t('<kbd>Mouse</kbd>', 'Apuntar')}${t('<kbd>Click</kbd>', 'Disparar')}
       ${t('<kbd>Espacio</kbd>', 'Saltar (volando: subir)')}${t('<kbd>Shift</kbd>', 'Correr (volando: bajar)')}
       ${t('<kbd>1</kbd>-<kbd>6</kbd> / <kbd>Rueda</kbd>', 'Cambiar de arma (en una pregunta rápida: responder)')}
-      ${t('<kbd>E</kbd>', 'Recoger piezas · usar la Estación, la Tienda y la ametralladora · robar el Arduino')}
+      ${t('<kbd>E</kbd>', 'Recoger piezas · usar la Estación, la Tienda y la ametralladora')}
       ${t('<kbd>F</kbd>', 'Volar (con el poder 9)')}${t('<kbd>I</kbd>', 'Este menú de información')}${t('<kbd>Q</kbd>', 'Calidad gráfica alta / baja')}
       ${t('<kbd>Esc</kbd>', 'Pausa / cerrar ventanas')}${G.profe ? t('<kbd>F1</kbd>', '👑 Panel del profe') : ''}</table>`;
   },

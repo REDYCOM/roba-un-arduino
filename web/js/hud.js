@@ -144,24 +144,35 @@ const HUD = {
     this._infoT = setTimeout(() => c.classList.add('sale'), 6000);
   },
 
+  // pantalla final: equipo ganador + quién tomó el Arduino (js/final.js)
   victoria() {
-    const v = document.getElementById('victoria');
+    const v = document.getElementById('victoria'), g = Final.ganador, c = Final.campeon;
+    const nomEq = (i) => `<i class="punto" style="background:${EQUIPOS[i].color}"></i>${EQUIPOS[i].nombre}`;
+    document.getElementById('vicEquipo').innerHTML = g ? nomEq(g.eq) + ` <small>${g.pts} pts</small>` : '—';
+    document.getElementById('vicCampeon').innerHTML = c ? '👑 ' + c.nombre + ` <small>${EQUIPOS[c.eq].nombre}</small>` : '—';
+    const yo = c && c.id === (Red.activa ? Red.id : 0);
+    document.getElementById('vicLogo').innerHTML = yo ? '¡GANASTE! <span>🏆</span>' : g && g.eq === MI_EQUIPO && !G.profe ? '¡TU EQUIPO GANÓ! <span>🏆</span>' : '¡FIN DE LA BATALLA! <span>🏆</span>';
     document.getElementById('vicPuntos').textContent = G.puntos;
     document.getElementById('vicBajas').textContent = G.bajas;
     const s = Math.floor(G.t), m = Math.floor(s / 60);
     document.getElementById('vicTiempo').textContent = m + ':' + String(s % 60).padStart(2, '0');
     setTimeout(() => { v.classList.remove('oculto'); G.sinPausa = true; if (document.exitPointerLock) document.exitPointerLock(); }, 2500);
-    this.anuncio('🏆 ¡VICTORIA! 🏆', 'Recuperaste el ARDUINO SUPREMO', '#ffcf4a');
   },
 
-  muerte(si, tipo) {
+  // autor = { nombre } si te derribó otro jugador · enFinal = quedaste eliminado de la gran final
+  muerte(si, tipo, autor, enFinal) {
     this.el.muerte.classList.toggle('oculto', !si);
     if (si) {
       const p = this.el.muerte.querySelector('.logo');
-      p.textContent = tipo === 'Tanque' || tipo === 'Coloso' || tipo === 'Jefe' ? '¡TE APLASTARON!' : '¡TE DERRIBARON!';
+      p.textContent = enFinal ? '¡ELIMINADO!' : tipo === 'Tanque' || tipo === 'Coloso' || tipo === 'Jefe' ? '¡TE APLASTARON!' : '¡TE DERRIBARON!';
+      const quien = document.getElementById('muerteQuien');
+      quien.innerHTML = autor ? '⚔️ Te derribó <b>' + autor.nombre + '</b>' : '';
+      quien.classList.toggle('oculto', !autor);
+      document.getElementById('muerteRevive').innerHTML = enFinal ? 'Quedaste fuera de la gran final. Podrás mirar desde arriba.' : 'Reapareces en tu base en <b id="muerteCuenta">4</b>…';
+      this.el.muerteCuenta = document.getElementById('muerteCuenta') || this.el.muerteCuenta;
     }
   },
-  cuentaMuerte(n) { this.el.muerteCuenta.textContent = Math.max(0, n); },
+  cuentaMuerte(n) { if (this.el.muerteCuenta) this.el.muerteCuenta.textContent = Math.max(0, n); },
 
   update(dt) {
     const ll = document.getElementById('llevando');

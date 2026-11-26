@@ -143,14 +143,19 @@
 <div id="muerte" class="pantalla oculto roja">
   <div class="tarjeta chica">
     <div class="logo chico">¡TE DERRIBARON!</div>
-    <p>Reapareces en tu base en <b id="muerteCuenta">4</b>…</p>
+    <p id="muerteQuien" class="oculto"></p>
+    <p id="muerteRevive">Reapareces en tu base en <b id="muerteCuenta">4</b>…</p>
   </div>
 </div>
 
 <div id="victoria" class="pantalla oculto">
   <div class="tarjeta">
-    <div class="logo">¡GANASTE! <span>🏆</span></div>
-    <p class="historia">Destruiste al robot de <b>ARDUNOL</b> y robaste el <b>ARDUINO SUPREMO</b>. El último bastión resistió: ¡la paz vuelve al Reino Tecnológico!</p>
+    <div class="logo" id="vicLogo">¡GANASTE! <span>🏆</span></div>
+    <p class="historia">El robot de <b>ARDUNOL</b> cayó y el último bastión resistió: ¡la paz vuelve al Reino Tecnológico!</p>
+    <div class="vicFinal">
+      <div><small>🏆 Equipo ganador</small><b id="vicEquipo">—</b></div>
+      <div><small>👑 Tomó el ARDUINO SUPREMO</small><b id="vicCampeon">—</b></div>
+    </div>
     <div class="controles"><div>⭐ Puntos: <b id="vicPuntos">0</b></div><div>🤖 Robots: <b id="vicBajas">0</b></div><div>⏱ Tiempo: <b id="vicTiempo">0:00</b></div></div>
     <button onclick="location.reload()">Jugar otra vez</button>
     <details class="creditosVic"><summary>📜 Créditos</summary><div class="creditosTxt">
@@ -200,7 +205,7 @@
     window.THREE = THREE;
     window.ADD = { mergeGeometries, EffectComposer, RenderPass, UnrealBloomPass, OutputPass, GLTFLoader, MeshoptDecoder, SkeletonUtils };
     const archivos = ['datos/base-equipo.js', 'datos/componentes.js', 'js/core.js', 'js/audio.js', 'js/world.js', 'js/fx.js', 'js/player.js',
-                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/jefe-mech.js', 'js/robots.js', 'js/componentes.js', 'js/final.js', 'js/avatar.js', 'js/profe.js', 'js/info.js', 'js/red.js', 'js/runas.js', 'js/poderes.js', 'js/preguntas.js', 'js/retos.js', 'js/tienda.js', 'js/hud.js', 'js/main.js'];
+                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/jefe-mech.js', 'js/robots.js', 'js/componentes.js', 'js/final.js', 'js/avatar.js', 'js/profe.js', 'js/info.js', 'js/red.js', 'js/pvp.js', 'js/runas.js', 'js/poderes.js', 'js/preguntas.js', 'js/retos.js', 'js/tienda.js', 'js/hud.js', 'js/main.js'];
     for (const f of archivos) {
       await new Promise((ok, mal) => {
         const s = document.createElement('script');

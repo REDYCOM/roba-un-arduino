@@ -21,11 +21,12 @@ const Jugador = {
   ojo(v = V3()) { return v.set(this.pos.x, this.pos.y + this.ojos, this.pos.z); },
   centro(v = V3()) { return v.set(this.pos.x, this.pos.y + 1.0, this.pos.z); },
 
-  danar(cant, origen, tipo) {
+  // autor = { id, nombre } si te pegó otro jugador (pvp.js)
+  danar(cant, origen, tipo, autor) {
     if (this.muerto || this.invulnerable > 0 || G.estado !== 'jugando') return;
     // runa ESCUDO: no te hacen daño, solo chispas azules
     if (G.mods.escudo) { FX.chispazo(this.centro(), '#50aaff', 10, 4); HUD.escudoGolpe(); return; }
-    cant *= Profe.dif.dano; // dificultad elegida por el profe
+    if (!autor) cant *= Profe.dif.dano; // dificultad elegida por el profe (solo para los robots)
     this.vida -= cant;
     this.ultimoDano = G.t;
     Sfx.play('dano');
@@ -42,13 +43,18 @@ const Jugador = {
     Componentes.alRecibirDano(cant);
     if (this.vida <= 0) {
       this.vida = 0; this.muerto = true; this.cuentaRevivir = 4;
-      HUD.muerte(true, tipo);
+      const enFinal = Final.todosContraTodos();
+      HUD.muerte(true, tipo, autor, enFinal);
       FX.sacudir(1);
+      // el profe lleva la cuenta de quién derribó a quién (y de quién sigue en pie en la gran final)
+      if (Red.cliente && (autor || enFinal)) Red.ev({ a: 'baja', por: autor ? autor.id : 0 }, 'host');
+      if (enFinal) Final.eliminado();
     }
   },
   curar(cant) { this.vida = Math.min(this.vidaMax, this.vida + cant); },
 
   update(dt) {
+    if (this.muerto && Final.espectador) { this.espectar(dt); return; }
     if (this.muerto) {
       this.cuentaRevivir -= dt;
       HUD.cuentaMuerte(Math.ceil(this.cuentaRevivir));
@@ -146,13 +152,32 @@ const Jugador = {
     this.camara(dt);
   },
 
+  // eliminado en la gran final: miras desde arriba y te mueves libre (nadie te ve)
+  espectar(dt) {
+    this.yaw -= Input.dx * this.sens;
+    this.pitch = clamp(this.pitch - Input.dy * this.sens, -1.5, 1.5);
+    let fx = 0, fz = 0;
+    if (Input.tecla('KeyW') || Input.tecla('ArrowUp')) fz -= 1;
+    if (Input.tecla('KeyS') || Input.tecla('ArrowDown')) fz += 1;
+    if (Input.tecla('KeyA') || Input.tecla('ArrowLeft')) fx -= 1;
+    if (Input.tecla('KeyD') || Input.tecla('ArrowRight')) fx += 1;
+    const len = Math.hypot(fx, fz);
+    if (len > 0) {
+      const s = Math.sin(this.yaw), c = Math.cos(this.yaw), v = 16 * dt / len;
+      this.pos.x += (fx * c + fz * s) * v; this.pos.z += (-fx * s + fz * c) * v;
+      const r = Math.hypot(this.pos.x, this.pos.z);
+      if (r > 140) { this.pos.x *= 140 / r; this.pos.z *= 140 / r; }
+    }
+    this.camara(dt);
+  },
+
   camara(dt) {
     const cam = G.camera;
     this.aterrizaje = Math.max(0, this.aterrizaje - dt * 3);
     const bobY = Math.abs(Math.sin(this.bob)) * 0.06 * this.bobAmp - this.aterrizaje * 0.25;
     const bobX = Math.cos(this.bob) * 0.035 * this.bobAmp;
     const sh = FX.sacudida * FX.sacudida;
-    const yObj = this.muerto ? this.pos.y + 0.4 : this.pos.y + this.ojos;
+    const yObj = this.muerto ? this.pos.y + (Final.espectador ? 14 : 0.4) : this.pos.y + this.ojos;
     // suaviza solo al subir (escalones); al caer sigue directo
     this.camY = this.camY === undefined || yObj < this.camY || yObj - this.camY > 2 ? yObj : damp(this.camY, yObj, 18, dt);
     const y = this.camY + bobY;
@@ -160,7 +185,7 @@ const Jugador = {
     cam.rotation.order = 'YXZ';
     cam.rotation.y = this.yaw + (Math.random() - 0.5) * sh * 0.05;
     cam.rotation.x = this.pitch + (Math.random() - 0.5) * sh * 0.05 + Armas.retroceso * 0.04;
-    cam.rotation.z = this.muerto ? 0.4 : (Math.random() - 0.5) * sh * 0.03 - bobX * 0.15;
+    cam.rotation.z = this.muerto && !Final.espectador ? 0.4 : (Math.random() - 0.5) * sh * 0.03 - bobX * 0.15;
     const corre = (Input.tecla('ShiftLeft') || Input.tecla('ShiftRight')) && Math.hypot(this.vel.x, this.vel.z) > 8;
     // en pantallas angostas se abre el campo de visión para no ver todo "de cerca"
     const fovBase = clamp(THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(50)) / cam.aspect)), this.fov, 100);

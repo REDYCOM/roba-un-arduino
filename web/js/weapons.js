@@ -161,20 +161,28 @@ const Armas = {
   },
   posBoca() { const v = V3(); this.modelos[this.actual.id].boca.getWorldPosition(v); return v; },
 
-  // Rayo contra robots (y el mundo). Devuelve lista de impactos ordenados
+  // Rayo contra robots, jugadores rivales (pvp.js) y el mundo. Devuelve lista de impactos ordenados
+  //   cada impacto: { robot } o { jugador }, con punto, critico (cabeza) y dist
   trazar(o, d, alcance, atraviesa = false) {
     const dm = rayoMundo(o, d, alcance);
     const fin = Math.min(dm, alcance);
     this.ray.set(o, d); this.ray.far = fin;
-    const hits = this.ray.intersectObjects(Robots.objetivosRayo(), true);
+    const rivales = PVP.mallas();
+    const hits = this.ray.intersectObjects(rivales.length ? Robots.objetivosRayo().concat(rivales) : Robots.objetivosRayo(), true);
     const res = [], vistos = new Set();
     for (const h of hits) {
-      const r = h.object.userData.robot;
-      if (!r || r.muerto || vistos.has(r)) continue;
-      vistos.add(r); res.push({ robot: r, punto: h.point, critico: !!h.object.userData.critico, dist: h.distance });
+      const r = h.object.userData.robot, j = r ? null : h.object.userData.jugador;
+      const quien = r || j;
+      if (!quien || quien.muerto || vistos.has(quien)) continue;
+      vistos.add(quien); res.push({ robot: r, jugador: j, punto: h.point, critico: !!h.object.userData.critico, dist: h.distance });
       if (!atraviesa) break;
     }
     return { robots: res, fin, pared: dm < alcance };
+  },
+  // aplica el daño de un impacto de trazar (a un robot o a un jugador rival)
+  golpe(h, cant) {
+    if (h.jugador) PVP.danar(h.jugador, cant * (h.critico ? 1.5 : 1), h.punto, h.critico);
+    else Robots.danar(h.robot, cant * (h.critico ? 1.5 : 1), h.punto, h.critico);
   },
 
   disparar() {
@@ -197,7 +205,7 @@ const Armas = {
           if (t.robots.length) {
             const h = t.robots[0];
             if (a.id === 'blaster') { FX.chispazo(h.punto, a.color, 7, 4, 0.1); FX.luz(h.punto, a.color, 4, 4, 0.06); }
-            Robots.danar(h.robot, a.dano * (h.critico ? 1.5 : 1), h.punto, h.critico);
+            this.golpe(h, a.dano);
           } else if (t.pared) {
             FX.chispazo(fin, a.color, n > 1 ? 3 : 6, 5, 0.12); Sfx.play('impacto', fin.distanceTo(o));
             if (G.ultimaCaja && G.ultimaCaja.destr) Destruibles.danar(G.ultimaCaja.destr, a.dano, fin);
@@ -219,7 +227,7 @@ const Armas = {
         const fin = o.clone().addScaledVector(d, t.fin);
         FX.segmento(boca, fin, 0.09, a.color, 0.22, 3);
         FX.segmento(boca, fin, 0.03, '#ffffff', 0.16, 3);
-        for (const h of t.robots) Robots.danar(h.robot, a.dano * (h.critico ? 1.5 : 1), h.punto, h.critico);
+        for (const h of t.robots) this.golpe(h, a.dano);
         if (t.pared) { FX.chispazo(fin, a.color, 14, 6, 0.15); FX.luz(fin, a.color, 15, 8, 0.2); if (G.ultimaCaja && G.ultimaCaja.destr) Destruibles.danar(G.ultimaCaja.destr, a.dano, fin); }
         FX.luz(boca, a.color, 10, 6, 0.15);
         this.retroceso = 0.6;
@@ -239,17 +247,29 @@ const Armas = {
       }
       case 'tesla': {
         const d = this.direccion(0);
-        let objetivo = null, mejor = 0.94;
+        let objetivo = null, rival = null, mejor = 0.94;
         for (const r of Robots.vivos) {
           const c = r.centro(); const v = c.clone().sub(o); const L = v.length();
           if (L > a.alcance) continue;
           const dot = v.divideScalar(L).dot(d);
           if (dot > mejor && hayVista(o, c)) { mejor = dot; objetivo = r; }
         }
-        if (!objetivo) {
+        // jugadores rivales (el rayo no salta de un jugador a otro)
+        for (const j of PVP.objetivos()) {
+          const c = j.centro(); const v = c.clone().sub(o); const L = v.length();
+          if (L > a.alcance) continue;
+          const dot = v.divideScalar(L).dot(d);
+          if (dot > mejor && hayVista(o, c)) { mejor = dot; rival = j; objetivo = null; }
+        }
+        if (!objetivo && !rival) {
           const t = this.trazar(o, d, a.alcance);
-          if (t.robots.length) objetivo = t.robots[0].robot;
+          if (t.robots.length) { objetivo = t.robots[0].robot; rival = t.robots[0].jugador; }
           else { const fin = o.clone().addScaledVector(d, t.fin); FX.arco(boca, fin, a.color, 0.15); FX.chispazo(fin, a.color, 8, 4); }
+        }
+        if (rival) {
+          const c = rival.centro();
+          FX.arco(boca, c, a.color, 0.22, 0.06, 0.35); FX.chispazo(c, a.color, 10, 5);
+          PVP.danar(rival, a.dano, c, false);
         }
         if (objetivo) {
           const tocados = new Set([objetivo]);
@@ -311,6 +331,7 @@ const Armas = {
       const d = r.centro().distanceTo(pos) - r.radio * 0.6;
       if (d < a.radio) Robots.danar(r, a.dano * (1 - 0.5 * clamp(d / a.radio, 0, 1)), r.centro(), false);
     }
+    PVP.explosion(pos, a); // también a los jugadores rivales cercanos
   },
 
   updateProyectiles(dt) {
@@ -325,6 +346,7 @@ const Armas = {
         else {
           p.pos.addScaledVector(p.vel, dt);
           for (const r of Robots.vivos) if (r.centro().distanceTo(p.pos) < r.radio + 0.3) { explota = true; break; }
+          if (!explota && PVP.toca(p.pos, 0.8)) explota = true;
         }
         // estela
         FX.humo.emitir(p.pos.x, p.pos.y, p.pos.z, rand(-0.3, 0.3), rand(0, 0.5), rand(-0.3, 0.3), new THREE.Color(0.6, 0.6, 0.6), 0.25, 1.2, { crece: 1.4, a: 0.45, roce: 1 });
@@ -344,6 +366,7 @@ const Armas = {
         p.m.rotation.x += p.giro.x * dt; p.m.rotation.z += p.giro.z * dt;
         p.banda.material.color.setScalar(Math.sin(p.vida * 30) > 0 ? 4 : 0.5).multiply(col('#5ef0ff'));
         for (const r of Robots.vivos) if (r.centro().distanceTo(p.pos) < r.radio * 0.8) { explota = true; break; }
+        if (!explota && PVP.toca(p.pos, 0.6)) explota = true;
       }
       if (explota) {
         this.explotar(p.pos, p.a);

@@ -5,7 +5,17 @@
 //    🔁 Bucle principal (bloques que se ARRASTRAN para ordenar)
 //  + placa virtual con LEDs y consola serial que EJECUTA tu programa.
 //  Al ordenar bien: puntos + un PODER permanente + "SIGUIENTE RETO".
+//  Tres niveles (el profe los cambia en su panel F1, para todos):
+//    🟢 Fácil      = retos cortos (3 bloques) con los pasos en orden en la explicación
+//    🟡 Difícil    = los retos completos + una pista + te marca qué bloques están bien
+//    🔴 Complicado = los retos completos, sin ayuda (como eran al principio)
+//  Los puntos y poderes son los mismos en los tres niveles.
 // =====================================================================
+const NIVELES_RETOS = [
+  { nombre: 'Fácil', icono: '🟢', info: 'Retos cortos de 3 bloques con los pasos explicados en orden · preguntas sencillas.' },
+  { nombre: 'Difícil', icono: '🟡', info: 'Retos completos con una pista; al probar se marca cada bloque bien ✅ o mal ❌ · preguntas medias.' },
+  { nombre: 'Complicado', icono: '🔴', info: 'Retos completos sin ayuda (como eran al principio) · todas las preguntas.' },
+];
 const RETOS = (() => {
   const DIG = '#3498db', TIME = '#e67e22', SER = '#1abc9c', CON = '#9b59b6', VAR = '#e74c3c', SET = '#78828c';
   const b = (id, texto, simbolo, color) => ({ id, texto, simbolo, color });
@@ -62,6 +72,58 @@ const RETOS = (() => {
   ];
 })();
 
+// 🟢 FÁCIL: el mismo tema de cada reto en 3 bloques, con palabras simples.
+//    La explicación dice los pasos en orden: solo hay que seguirla.
+const RETOS_FACILES = (() => {
+  const DIG = '#3498db', TIME = '#e67e22', SER = '#1abc9c', CON = '#9b59b6', VAR = '#e74c3c', SET = '#78828c';
+  const b = (id, texto, simbolo, color) => ({ id, texto, simbolo, color });
+  const ENC = (n) => b('on' + n, '💡 Encender el LED ' + n, 'ON' + n, DIG);
+  const ESP = b('w', '⏱ Esperar 1 segundo', 'WAIT', TIME);
+  return [
+    { titulo: 'Parpadear el LED', descripcion: 'Ordena los pasos: <b>1)</b> ENCIENDE el LED → <b>2)</b> ESPERA → <b>3)</b> APAGA el LED.',
+      inicializar: [['configurar pin 13 como SALIDA', SET]], bucle: [ENC(13), ESP, b('off', '⚫ Apagar el LED 13', 'OFF13', DIG)], leds: ['13'] },
+    { titulo: 'Mensaje a la computadora', descripcion: '<b>1)</b> MANDA un mensaje a la computadora → <b>2)</b> ENCIENDE el LED → <b>3)</b> ESPERA.',
+      inicializar: [['configurar pin 13 como SALIDA', SET], ['Puerto serie: iniciar', SER]],
+      bucle: [b('prt', '💬 Mandar mensaje "Encendiendo LED"', 'SPRINT', SER), ENC(13), ESP], leds: ['13'] },
+    { titulo: 'Dos LEDs', descripcion: '<b>1)</b> ENCIENDE el LED 13 → <b>2)</b> ESPERA → <b>3)</b> ENCIENDE el LED 12.',
+      inicializar: [['configurar pines 13 y 12 como SALIDA', SET]], bucle: [ENC(13), ESP, ENC(12)], leds: ['13', '12'] },
+    { titulo: 'Tres LEDs en fila', descripcion: 'Enciende los LEDs uno tras otro: <b>1)</b> el 11 → <b>2)</b> el 12 → <b>3)</b> el 13.',
+      inicializar: [['configurar pines 11, 12 y 13 como SALIDA', SET]], bucle: [ENC(11), ENC(12), ENC(13)], leds: ['11', '12', '13'] },
+    { titulo: 'Semáforo de dos luces', descripcion: '<b>1)</b> ENCIENDE la luz VERDE → <b>2)</b> APAGA la VERDE → <b>3)</b> ENCIENDE la ROJA.',
+      inicializar: [['configurar LED VERDE y LED ROJO como SALIDA', SET]],
+      bucle: [b('onv', '🟢 Encender luz VERDE', 'ONV', DIG), b('ofv', '⚫ Apagar luz VERDE', 'OFFV', DIG), b('onr', '🔴 Encender luz ROJA', 'ONR', DIG)], leds: ['V', 'R'] },
+    { titulo: 'El botón prende el LED', descripcion: '<b>1)</b> LEE el botón → <b>2)</b> SI está presionado… → <b>3)</b> …ENCIENDE el LED.',
+      inicializar: [['configurar pin 13 como SALIDA', SET], ['configurar botón como ENTRADA', SET]],
+      bucle: [b('rd', '👆 Leer el botón', 'READ', DIG), b('if', '❓ Si el botón está presionado…', 'IF', CON), b('on', '   💡 …encender el LED 13', 'ON13', DIG)], leds: ['13'], boton: true },
+    { titulo: 'Semáforo de la calle', descripcion: 'Como el semáforo de verdad: <b>1)</b> VERDE → <b>2)</b> AMARILLO → <b>3)</b> ROJO.',
+      inicializar: [['configurar VERDE, AMARILLO y ROJO como SALIDA', SET]],
+      bucle: [b('onv', '🟢 Encender luz VERDE', 'ONV', DIG), b('ona', '🟡 Encender luz AMARILLA', 'ONA', DIG), b('onr', '🔴 Encender luz ROJA', 'ONR', DIG)], leds: ['V', 'A', 'R'] },
+    { titulo: 'Semáforo para peatones', descripcion: '<b>1)</b> LEE el botón del peatón → <b>2)</b> ROJO para los autos → <b>3)</b> VERDE para el peatón.',
+      inicializar: [['configurar luces como SALIDA', SET], ['configurar botón como ENTRADA', SET]],
+      bucle: [b('rd', '👆 Leer el botón del peatón', 'READ', DIG), b('onr', '🔴 Luz ROJA para los autos', 'ONR', DIG), b('onp', '🚶 Luz VERDE para el peatón', 'ONVP', DIG)], leds: ['R', 'VP'], boton: true },
+    { titulo: 'LED con variable', descripcion: "La variable 'led' guarda el número 13. <b>1)</b> ENCIENDE (led) → <b>2)</b> ESPERA → <b>3)</b> APAGA (led).",
+      inicializar: [['número  led = 13', VAR], ['configurar pin (led) como SALIDA', SET]],
+      bucle: [b('on', '💡 Encender pin (led)', 'ONVAR', DIG), ESP, b('off', '⚫ Apagar pin (led)', 'OFFVAR', DIG)], leds: ['13'] },
+    { titulo: 'Semáforo que ve autos', descripcion: '<b>1)</b> MIRA con el sensor si hay un auto → <b>2)</b> SI hay auto… → <b>3)</b> …pon la luz VERDE.',
+      inicializar: [['configurar VERDE y ROJO como SALIDA', SET], ['configurar sensor como ENTRADA', SET]],
+      bucle: [b('var', '📡 hayAuto = mirar el sensor', 'VARBOOL', VAR), b('if', '❓ Si hay auto…', 'IF', CON), b('onv', '   🟢 …encender luz VERDE', 'ONV', DIG)], leds: ['V', 'R'], sensor: true },
+  ].map((r, i) => ({ ...r, puntos: RETOS[i].puntos, poder: RETOS[i].poder, facil: true }));
+})();
+
+// 🟡 DIFÍCIL: una pista para cada reto completo (sin dar toda la respuesta)
+const PISTAS_RETOS = [
+  'Primero se enciende y después se espera… y lo mismo para apagar.',
+  'El mensaje se manda antes de encender el LED. El esperar va al final.',
+  'Termina con el LED 13 (encender, esperar, apagar) antes de pasar al LED 12.',
+  'Cada LED: primero se enciende y después se espera. Empieza por el 11.',
+  'Cada color tiene 3 pasos: encender → esperar → apagar. Primero el verde.',
+  'Primero hay que LEER el botón. El "si no" va entre encender y apagar.',
+  'Como el semáforo de la calle: verde, amarillo, rojo. Cada uno: encender → esperar → apagar.',
+  'Primero se lee y se pregunta "si". El peatón pasa cuando los autos ya están en rojo, y su luz se apaga antes que la de los autos.',
+  'Es igual que el reto 1 (parpadear), pero usando la variable (led).',
+  'Primero se guarda lo que ve el sensor; después se decide con "si … si no". El esperar va al final.',
+];
+
 const Estacion = {
   abierta: null, orden: [], actual: 0, resueltos: 0, sim: null, arrastrando: null,
   COLORES_LED: { 13: '#ff3b3b', 12: '#ffd23b', 11: '#3bff7a', V: '#3bff7a', A: '#ffd23b', R: '#ff3b3b', VP: '#3bff7a' },
@@ -83,15 +145,36 @@ const Estacion = {
 
   modo: 'retos', acertadas: new Set(), preg: null, pregRespondida: false,
 
-  abrir(modo) {
-    this.modo = modo || (this.resueltos >= RETOS.length ? 'preguntas' : 'retos');
+  // el reto i en el nivel que eligió el profe
+  reto(i) {
+    const n = Profe.nivelRetos;
+    if (n === 0) return RETOS_FACILES[i];
+    return n === 1 ? { ...RETOS[i], pista: PISTAS_RETOS[i] } : RETOS[i];
+  },
+
+  cargarReto() {
     if (this.resueltos < RETOS.length) {
       this.actual = this.resueltos;
-      const r = RETOS[this.actual];
+      const r = this.reto(this.actual);
       this.abierta = r;
       // barajar el bucle (que no quede ya resuelto)
       do { this.orden = [...r.bucle].sort(() => Math.random() - 0.5); } while (this.esCorrecto());
     } else this.abierta = { terminado: true };
+  },
+
+  // el profe cambió el nivel: si la ventana está abierta, se recarga con el nuevo nivel
+  cambioNivel() {
+    if (!this.abierta) { this.preg = null; return; }
+    clearTimeout(this.sim);
+    this.cargarReto();
+    this.preg = null;
+    if (this.modo === 'preguntas') this.siguientePregunta();
+    this.dibujar();
+  },
+
+  abrir(modo) {
+    this.modo = modo || (this.resueltos >= RETOS.length ? 'preguntas' : 'retos');
+    this.cargarReto();
     if (this.modo === 'preguntas' && !this.preg) this.siguientePregunta();
     G.sinPausa = true;
     if (document.exitPointerLock) document.exitPointerLock();
@@ -112,7 +195,12 @@ const Estacion = {
   // pestañas: retos de bloques / preguntas
   pestanas() {
     return `<div class="tabs"><button data-m="retos" class="${this.modo === 'retos' ? 'sel' : ''}">🧩 Retos de bloques (${this.resueltos}/${RETOS.length})</button>` +
-      `<button data-m="preguntas" class="${this.modo === 'preguntas' ? 'sel' : ''}">❓ Preguntas (${this.acertadas.size}/${PREGUNTAS.length})</button></div>`;
+      `<button data-m="preguntas" class="${this.modo === 'preguntas' ? 'sel' : ''}">❓ Preguntas (${this.cuentaPreguntas()})</button></div>`;
+  },
+  // acertadas / total del nivel actual
+  cuentaPreguntas() {
+    const lista = preguntasDelNivel();
+    return lista.filter((i) => this.acertadas.has(i)).length + '/' + lista.length;
   },
   conectarPestanas() {
     document.getElementById('estCerrar').onclick = () => this.cerrar();
@@ -125,9 +213,9 @@ const Estacion = {
 
   // ---------- pestaña de preguntas: +20 la primera vez que aciertas cada una ----------
   siguientePregunta() {
-    const actual = this.preg && this.preg.original;
-    let libres = PREGUNTAS.map((_, i) => i).filter((i) => !this.acertadas.has(i) && PREGUNTAS[i] !== actual);
-    if (!libres.length) libres = PREGUNTAS.map((_, i) => i).filter((i) => PREGUNTAS[i] !== actual);
+    const actual = this.preg && this.preg.original, nivel = preguntasDelNivel();
+    let libres = nivel.filter((i) => !this.acertadas.has(i) && PREGUNTAS[i] !== actual);
+    if (!libres.length) libres = nivel.filter((i) => PREGUNTAS[i] !== actual);
     this.pregIdx = pick(libres);
     this.preg = barajarPregunta(PREGUNTAS[this.pregIdx]); this.pregRespondida = false;
   },
@@ -156,7 +244,7 @@ const Estacion = {
     else if (!bien) Sfx.play('sinMunicion');
     document.getElementById('pregMsg').innerHTML = txt + ' ' + q.exp;
     const tab = document.querySelector('#estacion .tabs button[data-m="preguntas"]');
-    if (tab) tab.textContent = `❓ Preguntas (${this.acertadas.size}/${PREGUNTAS.length})`;
+    if (tab) tab.textContent = `❓ Preguntas (${this.cuentaPreguntas()})`;
   },
 
   dibujar(resultado) {
@@ -171,14 +259,14 @@ const Estacion = {
     const leds = r.leds.map((l) => `<div class="led" data-led="${l}" style="--c:${this.COLORES_LED[l]}"><i></i><span>${this.NOMBRES_LED[l]}</span></div>`).join('');
     el.innerHTML = `
       <div class="ventana">
-        <div class="cab"><b>🧩 ESTACIÓN ARDUINO</b><span>Reto ${this.actual + 1} de ${RETOS.length} · +${r.puntos} pts · Poder ${r.poder}: ${PODERES[r.poder - 1].icono} ${PODERES[r.poder - 1].nombre}</span><button class="x" id="estCerrar">✕</button></div>
+        <div class="cab"><b>🧩 ESTACIÓN ARDUINO</b><span>Reto ${this.actual + 1} de ${RETOS.length} · ${NIVELES_RETOS[Profe.nivelRetos].icono} ${NIVELES_RETOS[Profe.nivelRetos].nombre} · +${r.puntos} pts · Poder ${r.poder}: ${PODERES[r.poder - 1].icono} ${PODERES[r.poder - 1].nombre}</span><button class="x" id="estCerrar">✕</button></div>
         ${this.pestanas()}
-        <h2>${r.titulo}</h2><p class="desc">${r.descripcion}</p>
+        <h2>${r.titulo}</h2><p class="desc">${r.descripcion}</p>${r.pista ? `<p class="pista">💡 <b>Pista:</b> ${r.pista}</p>` : ''}
         <div class="cuerpo">
           <div class="codigo">
             <div class="seccion">🔧 Inicializar</div>
             ${r.inicializar.map(([t, c]) => `<div class="bloque fijo" style="--c:${c}">${t}</div>`).join('')}
-            <div class="seccion">🔁 Bucle principal <small>(arrastra para ordenar)</small></div>
+            <div class="seccion">🔁 Bucle principal <small>(arrastra los bloques para ordenarlos${r.facil ? ' · arriba va el paso 1' : ''})</small></div>
             <div id="bucle">${this.orden.map((bq, i) => `<div class="bloque" draggable="true" data-i="${i}" style="--c:${bq.color}"><em>⋮⋮</em>${bq.texto}</div>`).join('')}</div>
           </div>
           <div class="placa">
@@ -250,7 +338,10 @@ const Estacion = {
     document.getElementById('estProbar').disabled = false;
     if (!this.esCorrecto()) {
       const bien = this.orden.filter((bq, i) => bq.simbolo === r.bucle[i].simbolo).length;
-      document.getElementById('estMsg').innerHTML = `❌ Todavía no. <b>${bien} de ${r.bucle.length}</b> bloques están en su lugar. ¡Revisa el orden!`;
+      // en fácil y difícil se marca cada bloque: ✅ en su lugar · ❌ hay que moverlo
+      if (Profe.nivelRetos < 2) document.querySelectorAll('#bucle .bloque').forEach((f, i) => f.classList.add(this.orden[i].simbolo === r.bucle[i].simbolo ? 'ok' : 'malo'));
+      document.getElementById('estMsg').innerHTML = `❌ Todavía no. <b>${bien} de ${r.bucle.length}</b> bloques están en su lugar.` +
+        (Profe.nivelRetos < 2 ? ' Mueve los que tienen ❌.' : ' ¡Revisa el orden!');
       Sfx.play('sinMunicion');
       return;
     }

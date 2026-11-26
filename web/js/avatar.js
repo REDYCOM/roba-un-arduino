@@ -107,6 +107,7 @@ const Avatar = {
   relacion(av) {
     if (av.profe) return 'profe';
     if (av.yo) return 'yo';
+    if (Final.todosContraTodos()) return 'rival'; // gran final: todos son rivales
     return av.equipo === MI_EQUIPO ? 'aliado' : 'rival';
   },
 

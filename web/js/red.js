@@ -24,6 +24,10 @@ class JugadorRemoto {
     this.stats = [0, 0, 0, 0]; this.listo = false; this.t999 = -9;
     this.av = Avatar.crear({ nombre: d.nombre, color: d.color, equipo: d.equipo, profe: d.profe });
     this.av.raiz.visible = false;
+    // para que los disparos de los rivales lo encuentren (pvp.js); la cabeza es golpe crítico
+    this.av.raiz.traverse((o) => { if (o.isMesh) o.userData.jugador = this; });
+    this.av.cabeza.traverse((o) => { if (o.isMesh) o.userData.critico = true; });
+    this.av.tag.sp.raycast = () => {};
     this.visto = V3(); this.yawVis = 0;
     G.scene.add(this.av.raiz);
   }
@@ -158,9 +162,22 @@ const Red = {
         break;
       }
       case 'suma': if (j) { const n = Math.max(0, Math.min(2000, +e.n || 0)); G.puntosEq[j.equipo] += n; if (j.equipo === MI_EQUIPO) { G.puntos += n; HUD.puntos(); } } break;
-      case 'robar': if (Final.estado === 'listo') Final.robar(j ? j.nombre : null); break;
+      case 'pvp': PVP.reenviar(e, de); break;   // un alumno le pegó a otro
+      case 'baja': PVP.baja(e, de); break;      // un alumno cayó
       // --- a los alumnos ---
-      case 'herido': if (!Jugador.muerto) Jugador.danar(e.c, V3(e.x, e.y, e.z), e.tp); break;
+      case 'herido': {
+        if (Jugador.muerto) break;
+        let autor = null;
+        if (e.de) {
+          // te pegó otro alumno: a los de tu equipo no les hace daño (salvo en la gran final)
+          const quien = this.remotos.get(e.de);
+          if (!quien || (!Final.todosContraTodos() && quien.equipo === MI_EQUIPO)) break;
+          autor = { id: e.de, nombre: e.q || quien.nombre };
+        }
+        Jugador.danar(e.c, V3(e.x, e.y, e.z), e.tp, autor);
+        break;
+      }
+      case 'ganaste': G.canje += e.n; G.misPuntos += e.n; HUD.puntos(); HUD.feed('⚔️ ¡Derribaste a <b>' + e.q + '</b>! <b>+' + e.n + '</b>'); break;
       case 'puntos': G.canje += e.n; G.misPuntos += e.n; G.bajas++; HUD.puntos(); HUD.feed('⭐ ¡Robot destruido! <b>+' + e.n + '</b>'); break;
       case 'muere': {
         const r = this.robots.get(e.rid); if (!r || r.muerto) break;
@@ -170,7 +187,9 @@ const Red = {
       }
       case 'quiz': if (!Quiz.activa) Quiz.lanzar(); break;
       case 'curar': Jugador.curar(9999); HUD.feed('👑 El profe curó a todos ❤️'); break;
-      case 'robado': if (Final.estado !== 'robado') Final.robar(e.q); break;
+      case 'finGanador': Final.recibirGanador(e); break;
+      case 'arena': Final.recibirArena(e); break;
+      case 'campeon': Final.recibirCampeon(e); break;
       case 'feed': HUD.feed(e.txt); break;
     }
   },
@@ -197,7 +216,7 @@ const Red = {
     const balas = Robots.balas.slice(0, 50).map((b) => [BALAS_LISTA.indexOf(b.tipo), R(b.pos.x), R(b.pos.y), R(b.pos.z)]);
     const quedan = O.cola.length + Robots.vivos.length;
     this.enviar({ t: 'snap', r: robots, b: balas, o: [O.n, FASES.indexOf(O.fase), R(O.cuenta), O.tipo, quedan], p: G.puntosEq, d: Profe.nivel,
-      z: G.estado === 'pausaProfe' ? 1 : 0, eq: G.equiposActivos });
+      z: G.estado === 'pausaProfe' ? 1 : 0, eq: G.equiposActivos, rn: Profe.nivelRetos, fv: Final.vivos ? Final.vivos.size : -1 });
   },
 
   // ---------- el alumno recibe la foto del profe ----------
@@ -244,6 +263,8 @@ const Red = {
     if (Profe.nivel !== s.d) Profe.nivel = s.d;
     if (!!s.z !== (G.estado === 'pausaProfe') && G.estado !== 'menu') Profe.pausar(!!s.z);
     if (s.eq) G.equiposActivos = s.eq;
+    if (s.rn !== undefined && s.rn !== Profe.nivelRetos) Profe.ponerNivelRetos(s.rn, true);
+    if (s.fv >= 0) Final.quedan = s.fv;
   },
 
   // ---------- cada cuadro ----------

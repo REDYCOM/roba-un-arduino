@@ -23,6 +23,7 @@ const DIFICULTADES = [
 
 const Profe = {
   abierto: false, nivel: 2, inmune: true, refrescoT: 0,
+  nivelRetos: 0, // 0 fácil · 1 difícil · 2 complicado (NIVELES_RETOS en retos.js)
 
   get dif() { return DIFICULTADES[this.nivel]; },
 
@@ -41,6 +42,18 @@ const Profe = {
     // los robots que ya están en el mapa cambian su vida al instante (mismo porcentaje)
     for (const r of Robots.vivos) { r.vida *= k; r.vidaMax *= k; if (r.cfg.jefe) HUD.jefe(r.cfg.nombre, r.vida / r.vidaMax); }
     HUD.feed('👑 El profe puso la dificultad en <b>' + d.icono + ' ' + d.nombre + '</b>');
+    this.dibujar();
+  },
+
+  // ---------- nivel de los retos y preguntas (para todos) ----------
+  // desdeRed = lo mandó la computadora del profe (alumno)
+  ponerNivelRetos(n, desdeRed) {
+    n = clamp(n | 0, 0, NIVELES_RETOS.length - 1);
+    if (n === this.nivelRetos) return;
+    this.nivelRetos = n;
+    const N = NIVELES_RETOS[n];
+    HUD.feed('👑 ' + (desdeRed ? 'El profe puso' : 'Pusiste') + ' los retos y preguntas en <b>' + N.icono + ' ' + N.nombre + '</b>');
+    Estacion.cambioNivel();
     this.dibujar();
   },
 
@@ -91,7 +104,8 @@ const Profe = {
     // estado de la partida
     const O = Oleadas, tiempo = Math.floor(G.t / 60) + ':' + String(Math.floor(G.t % 60)).padStart(2, '0');
     document.getElementById('ppRejas').style.display = O.fase === 'esperaProfe' ? '' : 'none';
-    const fase = O.fase === 'esperaProfe' ? '🔒 Rejas cerradas' : O.fase === 'descanso' ? (O.n === 0 ? 'Preparándose' : 'Descanso') + ' · ' + Math.ceil(O.cuenta) + ' s'
+    document.getElementById('ppFinal').style.display = Final.estado === 'arena' ? '' : 'none';
+    const fase = Final.estado === 'arena' ? '⚔ Gran final · ' + Final.quedan + ' en pie' : Final.estado === 'campeon' ? '👑 Terminada' : Final.estado ? '🏆 Final' : O.fase === 'esperaProfe' ? '🔒 Rejas cerradas' : O.fase === 'descanso' ? (O.n === 0 ? 'Preparándose' : 'Descanso') + ' · ' + Math.ceil(O.cuenta) + ' s'
       : O.fase === 'oleada' ? 'Oleada ' + O.n + ' de ' + O.TOTAL : O.fase === 'fin' ? 'Terminada' : 'Esperando';
     document.getElementById('ppEstado').innerHTML =
       `<div><small>Partida</small><b>${fase}</b></div><div><small>Robots vivos</small><b>${Robots.vivos.length}</b></div>` +
@@ -104,6 +118,8 @@ const Profe = {
     document.querySelectorAll('#ppDif button').forEach((b, i) => b.classList.toggle('sel', i === this.nivel));
     const d = this.dif;
     document.getElementById('ppDifInfo').textContent = `Daño de robots ×${d.dano} · Vida de robots ×${d.vida} · Velocidad ×${d.vel} · Cantidad ×${d.cant}`;
+    document.querySelectorAll('#ppRetos button').forEach((b, i) => b.classList.toggle('sel', i === this.nivelRetos));
+    document.getElementById('ppRetosInfo').textContent = NIVELES_RETOS[this.nivelRetos].info;
     // equipos (ordenados por puntos)
     const eqs = G.equiposActivos.map((i) => ({ i, eq: EQUIPOS[i], pts: G.puntosEq[i] || 0, n: this.jugadores().filter((j) => j.equipo === i).length }))
       .sort((a, b) => b.pts - a.pts);
@@ -131,6 +147,9 @@ const Profe = {
             <button class="rejas" data-acc="rejasYa">🔓 Abrir rejas ya</button>
             <button class="rejas" data-acc="rejas10">⏱ Abrir rejas en 10 s</button>
           </div>
+          <div class="ppBotones" id="ppFinal">
+            <button class="rejas" data-acc="terminarFinal">🏁 Terminar la gran final ya <small>(gana quien tenga más vida)</small></button>
+          </div>
           <div class="ppBotones">
             <button id="ppPausa" data-acc="pausa"></button>
             <button data-acc="siguiente">⏭ Siguiente oleada</button>
@@ -141,6 +160,9 @@ const Profe = {
           <div class="seccion">⚖️ Dificultad <small>(cambia al instante)</small></div>
           <div class="ppBotones dif" id="ppDif">${DIFICULTADES.map((d, i) => `<button data-acc="dif" data-i="${i}">${d.icono} ${d.nombre}</button>`).join('')}</div>
           <div class="ppInfo" id="ppDifInfo"></div>
+          <div class="seccion">🧩 Retos y preguntas <small>(cambia para todos)</small></div>
+          <div class="ppBotones dif" id="ppRetos">${NIVELES_RETOS.map((d, i) => `<button data-acc="retos" data-i="${i}">${d.icono} ${d.nombre}</button>`).join('')}</div>
+          <div class="ppInfo" id="ppRetosInfo"></div>
           <div class="seccion">👑 Tú</div>
           <div class="ppBotones">
             <button id="ppInmune" data-acc="inmune">🛡 Invencible</button>
@@ -169,6 +191,8 @@ const Profe = {
       case 'cerrar': this.cerrar(); return;
       case 'pausa': this.pausar(G.estado !== 'pausaProfe'); return;
       case 'dif': this.ponerDificultad(i); return;
+      case 'retos': this.ponerNivelRetos(i); return;
+      case 'terminarFinal': Final.terminarYa(); break;
       case 'rejasYa': O.abrirRejas(3); break;
       case 'rejas10': O.abrirRejas(10); break;
       case 'siguiente':
