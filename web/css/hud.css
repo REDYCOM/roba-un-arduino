@@ -298,3 +298,8 @@ button:disabled { filter: grayscale(.7); opacity: .7; cursor: wait; }
   #hotbar { bottom: 76px; }
   #armaBox { bottom: 136px; }
 }
+
+/* ---------- menú con Esc en línea: la partida sigue detrás ---------- */
+#pausa .notaLinea { display: none; color: #bfe9ff; font-size: 15px; margin: 4px 0 12px; }
+#pausa.enLinea .notaLinea { display: block; }
+#pausa.enLinea { background: rgba(4,8,18,.35); }

@@ -136,10 +136,20 @@ window.iniciarJuego = function () {
     if (Red.host) HUD.anuncio('🌐 SALA ' + Red.codigo, 'Dile a tus alumnos este código', '#36c5ff');
     bloquear();
   };
-  document.getElementById('btnSeguir').onclick = () => { pausa.classList.add('oculto'); G.estado = 'jugando'; Sfx.init(); bloquear(); };
-  renderer.domElement.addEventListener('click', () => { if (G.estado === 'jugando' && !Input.bloqueado) bloquear(); });
+  document.getElementById('btnSeguir').onclick = () => {
+    pausa.classList.add('oculto');
+    if (G.estado === 'pausa') G.estado = 'jugando'; // (si el profe pausó a todos, eso no lo quita un alumno)
+    Sfx.init(); bloquear();
+  };
+  renderer.domElement.addEventListener('click', () => { if (G.estado === 'jugando' && !Input.bloqueado && pausa.classList.contains('oculto')) bloquear(); });
+  // Esc suelta el mouse (lo hace el navegador, no se puede evitar).
+  // Solo: el juego se pausa. En línea: sale un menú pero la partida SIGUE (los demás siguen jugando).
   document.addEventListener('pointerlockchange', () => {
-    if (!Input.bloqueado && G.estado === 'jugando' && !G.sinPausa) { G.estado = 'pausa'; pausa.classList.remove('oculto'); }
+    if (Input.bloqueado || G.estado !== 'jugando' || G.sinPausa) return;
+    pausa.classList.toggle('enLinea', Red.activa);
+    document.getElementById('pausaTitulo').textContent = Red.activa ? 'MENÚ' : 'PAUSA';
+    if (!Red.activa) G.estado = 'pausa';
+    pausa.classList.remove('oculto');
   });
 
   // ---------- calidad ----------

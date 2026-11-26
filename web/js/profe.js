@@ -11,7 +11,7 @@
 // =====================================================================
 // Solo se guarda la "huella" (SHA-256) de la clave, no la clave.
 // Para cambiarla:  node herramientas/clave-profe.mjs "tu clave nueva"
-const HUELLA_CLAVE_PROFE = '5cd5683234c69ddb7dbf56cd2117498bbb1ba1d68938ef269095833c5edc8689';
+const HUELLA_CLAVE_PROFE = 'cd2d0c7cb8c13cdb358e4b2f6d1500a6d050e402798384002ea3f0c435ed2c97';
 
 const DIFICULTADES = [
   { nombre: 'Muy fácil', icono: '🐣', dano: 0.4, vida: 0.5, vel: 0.75, cant: 0.5 },
