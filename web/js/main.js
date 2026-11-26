@@ -60,8 +60,10 @@ window.iniciarJuego = function () {
   document.getElementById('btnSoyProfe').onclick = () => { claveZona.classList.toggle('oculto'); inpClave.focus(); };
   const probarClave = async () => {
     if (await Profe.comprobar(inpClave.value)) {
-      G.profe = true;
-      document.getElementById('profeZona').innerHTML = '<div class="profeOk">👑 Modo profe activado · en la partida pulsa <kbd>F1</kbd> para tu panel</div>';
+      G.profe = true; Profe.clave = inpClave.value.trim();
+      document.getElementById('profeZona').innerHTML = '<div class="profeOk">👑 Modo profe activado · en la partida pulsa <kbd>F1</kbd> para tu panel</div>' +
+        '<label class="crearSala"><input type="checkbox" id="crearSala" checked> 🌐 Crear sala para mi clase (multijugador)</label>';
+      document.getElementById('filaCodigo').classList.add('oculto');
       perfil.previa();
     } else { inpClave.value = ''; inpClave.placeholder = 'Clave incorrecta'; inpClave.classList.add('error'); }
   };
@@ -97,7 +99,7 @@ window.iniciarJuego = function () {
       G.equiposActivos = [MI_EQUIPO];
       for (let i = 1; G.equiposActivos.length < k; i++) G.equiposActivos.push((MI_EQUIPO + i) % EQUIPOS.length);
       Armas.matManga.color.set(G.miColor); // tus mangas son del color de tu soldado
-      Companeros.iniciar();
+      if (!Red.activa) Companeros.iniciar(); // jugadores de prueba solo sin sala
       if (G.profe) document.getElementById('insigniaProfe').classList.remove('oculto');
       // regalo de bienvenida para la tienda
       G.canje += PUNTOS.regalo; HUD.puntos();
@@ -115,12 +117,23 @@ window.iniciarJuego = function () {
   const btn = document.getElementById('btnJugar');
   btn.disabled = false; btn.textContent = '¡JUGAR!';
   const bloquear = () => { const p = renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => {}); };
-  btn.onclick = () => {
+  btn.onclick = async () => {
     Sfx.init();
+    // multijugador: el profe crea la sala · el alumno entra con el código
+    const codigo = document.getElementById('codigoSala').value.replace(/\D/g, '');
+    const crear = G.profe && document.getElementById('crearSala') && document.getElementById('crearSala').checked;
+    if (codigo || crear) {
+      btn.disabled = true; btn.textContent = 'Conectando…';
+      const ok = await Red.conectar(crear ? { crear: true, clave: Profe.clave } : { codigo });
+      btn.disabled = false; btn.textContent = '¡JUGAR!';
+      if (!ok) return;
+    }
     menu.classList.add('oculto'); hud.classList.remove('oculto');
     G.estado = 'jugando';
     Partida.iniciar();
-    if (Oleadas.fase === 'espera') Oleadas.iniciar();
+    if (Red.activa) Red.actualizarConteo();
+    if (!Red.cliente && Oleadas.fase === 'espera') Oleadas.iniciar();
+    if (Red.host) HUD.anuncio('🌐 SALA ' + Red.codigo, 'Dile a tus alumnos este código', '#36c5ff');
     bloquear();
   };
   document.getElementById('btnSeguir').onclick = () => { pausa.classList.add('oculto'); G.estado = 'jugando'; Sfx.init(); bloquear(); };
@@ -160,6 +173,7 @@ window.iniciarJuego = function () {
       Final.update(dt);
       Companeros.update(dt);
       Profe.update(dt);
+      Red.update(dt);
       Runas.update(dt);
       Poderes.update(dt);
       Estacion.update();

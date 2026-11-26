@@ -15,10 +15,11 @@ const Final = {
     if (this.estado) return;
     this.estado = 'apagando'; this.t = 0;
     this.pos = V3(r.pos.x, Terreno.altura(r.pos.x, r.pos.z), r.pos.z);
-    Oleadas.cola.length = 0;           // no llegan más robots
     Jugador.invulnerable = 999;        // nadie te quita el final
     HUD.jefe(null);
     HUD.anuncio('¡EL ROBOT DE ARDUNOL CAYÓ!', 'Sin su creador, el ejército se apaga…', '#ffcf4a');
+    if (Red.cliente) return;           // en los alumnos, el resto lo hace la computadora del profe
+    Oleadas.cola.length = 0;           // no llegan más robots
     // el resto de robots explota en cadena
     const resto = Robots.vivos.filter((o) => o !== r && !o.muerto).sort(() => Math.random() - 0.5);
     resto.forEach((o, i) => { o.apagarEn = 0.6 + i * 0.18; });
@@ -107,13 +108,21 @@ const Final = {
     const d = Math.hypot(Jugador.pos.x - this.pos.x, Jugador.pos.z - this.pos.z);
     if (d < 5 && !Jugador.muerto) {
       G.aviso = 'Pulsa <kbd>E</kbd> para robar el <b>🏆 ARDUINO SUPREMO</b>';
-      if (Input.pulso('KeyE')) this.robar();
+      if (Input.pulso('KeyE')) {
+        if (Red.cliente) { Red.ev({ a: 'robar' }, 'host'); HUD.feed('🏆 ¡Intentando robar el Arduino!'); }
+        else this.robar();
+      }
     }
   },
 
-  robar() {
+  // quien = nombre del jugador que lo robó (en multijugador puede ser otro)
+  robar(quien) {
+    if (this.estado === 'robado') return;
     this.estado = 'robado';
+    if (Red.host) Red.ev({ a: 'robado', q: quien || G.miNombre });
+    if (quien && quien !== G.miNombre) HUD.feed('🏆 <b>' + quien + '</b> robó el ARDUINO SUPREMO');
     const T = this.trofeo;
+    if (!T) { sumarPuntos(500); HUD.victoria(); return; }
     Sfx.play('recoger'); Sfx.play('oleada');
     FX.explosion(T.giro.getWorldPosition(V3()), 5, '#ffcf4a');
     FX.aro(this.pos, 30, '#ffffff', 1.4); FX.sacudir(0.6);

@@ -176,6 +176,16 @@ button.secundario { display: block; margin: 8px auto 0; font-size: 15px; padding
 #info td { padding: 4px 8px; border-bottom: 1px solid #1d2a4b; } #info td:last-child { text-align: right; font-weight: 800; color: #ffcf4a; white-space: nowrap; }
 #info .chip { display: inline-block; padding: 1px 8px; border-radius: 8px; font-weight: 800; font-size: 13px; }
 #ppRejas button.rejas { background: linear-gradient(180deg, #7dffb0, #22b866); color: #04210f; font-weight: 800; }
+/* ---------- multijugador ---------- */
+.filaCodigo { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 8px; font-size: 16px; }
+.filaCodigo small { color: var(--tenue); } .filaCodigo.oculto { display: none; }
+#codigoSala { width: 110px; text-align: center; font: 800 20px "Baloo 2", system-ui, sans-serif; letter-spacing: 4px; padding: 4px 8px; border-radius: 10px; border: 2px solid #2f4170; background: #0b1428; color: #fff; outline: none; }
+#codigoSala:focus { border-color: #36c5ff; }
+#redMsg { margin: 0 0 8px; font-size: 15px; color: #ffd27a; } #redMsg small { color: var(--tenue); }
+.crearSala { display: block; margin-top: 6px; font-size: 14px; font-weight: 700; color: #bfe9ff; cursor: pointer; }
+#salaHud { position: absolute; top: 150px; left: 14px; background: rgba(10,18,36,.8); border: 1px solid #2f6f9a; color: #bfe9ff; font-size: 14px; padding: 4px 10px; border-radius: 10px; }
+#salaHud b { color: #fff; letter-spacing: 2px; } #salaHud.oculto { display: none; }
+.ppEstado b.codigo { color: #5fd6ff; letter-spacing: 3px; font-size: 20px; }
 #flashRojo { position: absolute; inset: 0; background: rgba(255, 30, 40, 1); opacity: 0; mix-blend-mode: screen; }
 #mira { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
 #mira span { position: absolute; background: #fff; box-shadow: 0 0 3px rgba(0,0,0,.8); border-radius: 2px; transition: transform .06s; }

@@ -73,6 +73,10 @@ const Profe = {
   jugadores() {
     const yo = { nombre: G.miNombre, equipo: MI_EQUIPO, puntos: G.misPuntos, bajas: G.bajas, retos: Estacion.resueltos,
       preguntas: Estacion.acertadas.size + (Quiz.aciertos || 0), vida: Jugador.vida / Jugador.vidaMax, profe: true, yo: true };
+    if (Red.activa) return [yo, ...[...Red.remotos.values()].map((j) => ({
+      nombre: j.nombre, equipo: j.equipo, puntos: j.stats[0] || 0, bajas: j.stats[1] || 0, retos: j.stats[2] || 0, preguntas: j.stats[3] || 0,
+      vida: j.muerto ? 0 : j.vida / j.vidaMax, red: j,
+    }))];
     const otros = Companeros.lista.filter((b) => !b.av.profe).map((b) => ({
       nombre: b.av.nombre, equipo: b.av.equipo, puntos: b.av.puntos || 0, bajas: b.av.bajas || 0, retos: '—', preguntas: '—',
       vida: b.av.vida / b.av.vidaMax, bot: b,
@@ -91,7 +95,7 @@ const Profe = {
       : O.fase === 'oleada' ? 'Oleada ' + O.n + ' de ' + O.TOTAL : O.fase === 'fin' ? 'Terminada' : 'Esperando';
     document.getElementById('ppEstado').innerHTML =
       `<div><small>Partida</small><b>${fase}</b></div><div><small>Robots vivos</small><b>${Robots.vivos.length}</b></div>` +
-      `<div><small>Jugadores</small><b>${G.jugadores}</b></div><div><small>Tiempo</small><b>${tiempo}</b></div>`;
+      (Red.activa ? `<div><small>🌐 Código de sala</small><b class="codigo">${Red.codigo}</b></div>` : '') + `<div><small>Jugadores</small><b>${G.jugadores}</b></div><div><small>Tiempo</small><b>${tiempo}</b></div>`;
     const pausado = G.estado === 'pausaProfe';
     const bp = document.getElementById('ppPausa');
     bp.textContent = pausado ? '▶ Reanudar para todos' : '⏸ Pausar para todos';
@@ -111,7 +115,7 @@ const Profe = {
       `<tr><td><i class="punto" style="background:${EQUIPOS[j.equipo].color}"></i>${j.yo ? '👑 ' : ''}${j.nombre}</td>` +
       `<td>${j.puntos}</td><td>${j.bajas}</td><td>${j.retos}</td><td>${j.preguntas}</td>` +
       `<td><span class="mini"><span style="width:${Math.round(j.vida * 100)}%"></span></span></td>` +
-      `<td>${j.bot ? `<button class="peligro" data-acc="sacar" data-n="${Companeros.lista.indexOf(j.bot)}">Sacar</button>` : ''}</td></tr>`).join('');
+      `<td>${j.bot ? `<button class="peligro" data-acc="sacar" data-n="${Companeros.lista.indexOf(j.bot)}">Sacar</button>` : j.red ? `<button class="peligro" data-acc="sacarRed" data-n="${j.red.id}">Sacar</button>` : ''}</td></tr>`).join('');
     document.getElementById('ppInmune').classList.toggle('activo', this.inmune);
     document.getElementById('ppVolar').classList.toggle('activo', Poderes.volando);
   },
@@ -176,10 +180,11 @@ const Profe = {
       case 'limpiar': this.destruirTodo(); HUD.feed('👑 El profe destruyó a los robots'); break;
       case 'pregunta':
         if (Quiz.activa) { HUD.feed('❓ Ya hay una pregunta en pantalla'); break; }
-        Quiz.lanzar(); break;
+        Quiz.lanzar(); Red.ev({ a: 'quiz' }); break;
       case 'curar':
         Jugador.curar(9999);
         for (const b of Companeros.lista) b.av.vida = b.av.vidaMax;
+        Red.ev({ a: 'curar' });
         HUD.feed('👑 El profe curó a todos ❤️'); Sfx.play('recoger'); break;
       case 'darPuntos':
         G.puntosEq[i] = (G.puntosEq[i] || 0) + 50;
@@ -195,6 +200,10 @@ const Profe = {
         Jugador.yaw = Math.atan2(x, z); // mirando hacia la plaza
         FX.chispazo(Jugador.centro(), '#ffcf4a', 20, 5);
         break;
+      }
+      case 'sacarRed': {
+        const j = Red.remotos.get(n); if (!j) break;
+        Red.sacar(n); HUD.feed('👑 ' + j.nombre + ' salió de la partida'); break;
       }
       case 'sacar': {
         const b = Companeros.lista[n]; if (!b) break;

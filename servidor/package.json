@@ -1,0 +1,17 @@
+{
+  "name": "roba-un-arduino-servidor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servidor de salas para el multijugador de Roba un Arduino",
+  "type": "module",
+  "main": "servidor.mjs",
+  "scripts": {
+    "start": "node servidor.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "8.18.0"
+  }
+}

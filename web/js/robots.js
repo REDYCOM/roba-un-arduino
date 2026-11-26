@@ -3,6 +3,19 @@
 //  (valores de Robots.server.luau, escalados de studs a metros)
 // =====================================================================
 const ST = 0.36; // metros por stud
+
+// ---------- objetivos: tú + los demás jugadores de la sala (multijugador) ----------
+function jugadoresVivos() {
+  const l = Jugador.muerto ? [] : [Jugador];
+  for (const j of Red.proxies()) if (!j.muerto) l.push(j);
+  return l;
+}
+function masCercano(p) {
+  let m = null, dm = Infinity;
+  for (const j of jugadoresVivos()) { const d = Math.hypot(j.pos.x - p.x, j.pos.z - p.z); if (d < dm) { dm = d; m = j; } }
+  return m;
+}
+let OBJ = Jugador; // a quién persigue el robot que se está pensando ahora
 const TIPOS = {
   Seguidor:  { vida: 120, vel: 7.4, dano: 20, alcance: 3.6 * ST, puntos: 15, fx: 1, mov: 'salto' },
   Arana:     { vida: 70, vel: 9.0, dano: 15, alcance: 3.4 * ST, puntos: 10, fx: 0.8, nombre: 'Araña', mov: 'salto' },
@@ -32,7 +45,7 @@ const RM = {
 
 // =====================================================================
 const Robots = {
-  vivos: [], balas: [], restos: [], botin: [],
+  vivos: [], balas: [], restos: [], botin: [], sigId: 0,
 
   centroDe(r) { return V3(r.pos.x, r.pos.y + (r.cfg.vuela ? 0 : r.cfg.alto * 0.55), r.pos.z); },
   objetivosRayo() { return this.vivos.map((r) => r.raiz); },
@@ -58,6 +71,7 @@ const Robots = {
     };
     if (cfg.vuela) r.pos.y += r.altVuelo;
     r.centro = () => this.centroDe(r);
+    r.id = ++this.sigId;
     if (esMech) Mech.preparar(r);
     else if (cfg.tinte) { r.furia = true; for (const m of r.mats) { m.emissive.set(cfg.tinte); m.emissiveIntensity = 0.3; } }
     r.raiz.traverse((o) => {
@@ -78,13 +92,19 @@ const Robots = {
     return r;
   },
 
-  danar(r, cant, punto, critico) {
+  danar(r, cant, punto, critico, quien) {
     if (r.muerto) return;
-    cant = Math.round(cant * G.mods.dano); // runa SOBRECARGA: doble daño
+    if (r.remoto) {
+      // alumno: la vida real la lleva el profe; aquí solo se ve el golpe
+      cant = Math.round(cant * G.mods.dano);
+      r.flash = 0.09; HUD.numero(punto || r.centro(), cant, critico); Sfx.play('golpeRobot'); HUD.hit(false);
+      Red.ev({ a: 'dano', rid: r.rid, c: cant, k: critico ? 1 : 0 }, 'host');
+      return;
+    }
+    cant = quien ? Math.round(cant) : Math.round(cant * G.mods.dano); // runa SOBRECARGA: doble daño
     r.vida -= cant;
     r.flash = 0.09;
-    HUD.numero(punto || r.centro(), cant, critico);
-    Sfx.play('golpeRobot');
+    if (!quien) { HUD.numero(punto || r.centro(), cant, critico); Sfx.play('golpeRobot'); }
     if (r.cfg.jefe) {
       HUD.jefe(r.cfg.nombre, Math.max(0, r.vida / r.vidaMax));
       if (!r.furia && r.vida < r.vidaMax * 0.5) {
@@ -94,7 +114,7 @@ const Robots = {
         if (!r.mech) for (const m of r.mats) m.emissive.set('#ff2200');
       }
     }
-    if (r.vida <= 0) { this.morir(r); HUD.hit(true); } else HUD.hit(false);
+    if (r.vida <= 0) { this.morir(r, quien); if (!quien) HUD.hit(true); } else if (!quien) HUD.hit(false);
   },
 
   // quien = otro jugador que lo destruyó { nombre, equipo } (sus puntos van a su equipo)
@@ -127,7 +147,7 @@ const Robots = {
     const pts = r.cfg.puntos;
     if (quien) {
       // lo destruyó otro jugador: los puntos van a su equipo
-      HUD.feed(`🤖 ${r.cfg.nombre || r.tipo} destruido por <b>${quien.nombre}</b>`);
+      if (!quien.silencio) HUD.feed(`🤖 ${r.cfg.nombre || r.tipo} destruido por <b>${quien.nombre}</b>`);
       if (quien.equipo >= 0) {
         G.puntosEq[quien.equipo] += pts; quien.puntos = (quien.puntos || 0) + pts; quien.bajas = (quien.bajas || 0) + 1;
         if (quien.equipo === MI_EQUIPO) { G.puntos += pts; HUD.puntos(); }
@@ -136,6 +156,10 @@ const Robots = {
       G.bajas++;
       sumarPuntos(pts);
       HUD.feed(`🤖 ${r.cfg.nombre || r.tipo} destruido <b>+${pts}</b>`);
+    }
+    if (Red.host) {
+      Red.ev({ a: 'muere', rid: r.id, q: quien ? quien.nombre : G.miNombre });
+      if (quien && quien.remoto) Red.ev({ a: 'puntos', n: pts }, quien.id);
     }
     if (r.cfg.final) Final.jefeCayo(r);
     else if (r.cfg.jefe) {
@@ -209,12 +233,13 @@ const Robots = {
   },
 
   updateBalas(dt) {
-    const pj = Jugador.centro();
+    const vivos = jugadoresVivos();
     for (let i = this.balas.length - 1; i >= 0; i--) {
       const b = this.balas[i];
       b.vida -= dt;
       if (b.tipo === 'misil') {
-        // teledirigido
+        // teledirigido al jugador más cercano
+        const pj = (masCercano(b.pos) || Jugador).centro();
         const deseo = pj.clone().sub(b.pos).normalize().multiplyScalar(b.vel.length());
         b.vel.lerp(deseo, Math.min(1, dt * b.giro)).setLength(16);
         FX.humo.emitir(b.pos.x, b.pos.y, b.pos.z, 0, 0.5, 0, new THREE.Color(0.35, 0.35, 0.35), 0.3, 1, { crece: 1.2, a: 0.5 });
@@ -229,12 +254,12 @@ const Robots = {
       else b.pos.addScaledVector(b.vel, dt);
       b.m.position.copy(b.pos);
       b.m.lookAt(b.pos.clone().sub(b.vel));
-      if (!Jugador.muerto && b.pos.distanceTo(pj) < b.radio + 0.6) { Jugador.danar(b.dano, b.pos, b.tipo); fin = true; }
+      for (const j of vivos) if (b.pos.distanceTo(j.centro()) < b.radio + 0.6) { j.danar(b.dano, b.pos, b.tipo); fin = true; break; }
       if (fin || b.vida <= 0) {
         if (b.tipo === 'misil') { FX.explosion(b.pos, 3, '#ff6633'); Destruibles.explosion(b.pos, 4); }
         else if (b.tipo === 'orbe') { FX.explosion(b.pos, 1.4, '#ff8a2a'); Destruibles.explosion(b.pos, 2); }
         else FX.chispazo(b.pos, '#ff3030', 8, 4);
-        if (b.tipo === 'misil' && !Jugador.muerto && b.pos.distanceTo(pj) < 3.5 && !(b.pos.distanceTo(pj) < b.radio + 0.6)) Jugador.danar(b.dano * 0.5, b.pos, 'misil');
+        if (b.tipo === 'misil') for (const j of vivos) { const dj = b.pos.distanceTo(j.centro()); if (dj < 3.5 && dj >= b.radio + 0.6) j.danar(b.dano * 0.5, b.pos, 'misil'); }
         G.scene.remove(b.m);
         this.balas.splice(i, 1);
       }
@@ -243,9 +268,12 @@ const Robots = {
 
   // ---------- IA ----------
   update(dt) {
-    const pj = Jugador.pos;
+    if (Red.cliente) { this.updateRemoto(dt); return; }
     for (const r of [...this.vivos]) {
       const cfg = r.cfg;
+      // cada medio segundo elige al jugador más cercano
+      if ((r.cdObj = (r.cdObj || 0) - dt) <= 0 || !r.obj || r.obj.muerto) { r.cdObj = 0.5; r.obj = masCercano(r.pos) || Jugador; }
+      OBJ = r.obj; const pj = OBJ.pos;
       r.aparecer = Math.min(1, r.aparecer + dt * 1.6);
       r.raiz.scale.setScalar(Math.max(0.01, smooth(0, 1, r.aparecer)));
       r.flash = Math.max(0, r.flash - dt);
@@ -254,7 +282,7 @@ const Robots = {
       else for (const m of r.mats) m.emissiveIntensity = r.flash > 0 ? 3 : 0.35 + Math.sin(G.t * 8) * 0.15;
       r.cdAtaque -= dt; r.ataque = Math.max(0, r.ataque - dt);
 
-      const objetivo = Jugador.muerto ? V3(0, SUELO, 0) : pj;
+      const objetivo = OBJ.muerto ? V3(0, SUELO, 0) : pj;
       const dx = objetivo.x - r.pos.x, dz = objetivo.z - r.pos.z;
       const dist = Math.hypot(dx, dz) || 0.001;
       const velBase = cfg.vel * Profe.dif.vel * (r.furia ? 1.35 : 1) * (r.aparecer < 1 ? 0 : 1);
@@ -264,7 +292,7 @@ const Robots = {
       // en pleno salto: sigue la curva y no hace nada más
       if (r.brinco) { this.updateBrinco(r, dt); continue; }
       r.cdMov -= dt; r.carga = Math.max(0, r.carga - dt);
-      if (r.aparecer >= 1 && !Jugador.muerto) this.moverEspecial(r, dist, dx, dz);
+      if (r.aparecer >= 1 && !OBJ.muerto) this.moverEspecial(r, dist, dx, dz);
       if (r.brinco) continue;
 
       // dirección deseada + separación de otros robots
@@ -278,7 +306,7 @@ const Robots = {
       // zigzag de los chicos (más difíciles de apuntar)
       if (!cfg.rompe && dist > 5) { const zz = Math.sin(G.t * 2.3 + r.zig) * 0.6; mx += -dz / dist * zz; mz += dx / dist * zz; }
       const ml = Math.hypot(mx, mz) || 1; mx /= ml; mz /= ml;
-      const cerca = dist < r.radio + cfg.alcance + Jugador.radio;
+      const cerca = dist < r.radio + cfg.alcance + OBJ.radio;
       const v = (cerca && !cfg.mata ? 0 : velBase) * (r.carga > 0 ? 2.3 : 1);
       const antes = r.pos.clone();
       r.pos.x += mx * v * dt; r.pos.z += mz * v * dt;
@@ -304,9 +332,9 @@ const Robots = {
 
       // atacar
       const dV = Math.abs(pj.y - r.pos.y);
-      if (!Jugador.muerto && cerca && dV < cfg.alto + 0.5) {
-        if (cfg.mata) Jugador.danar(999, r.pos, r.tipo);
-        else if (r.cdAtaque <= 0) { r.cdAtaque = 1.0; r.ataque = 0.45; Jugador.danar(cfg.dano, r.pos, r.tipo); }
+      if (!OBJ.muerto && cerca && dV < cfg.alto + 0.5) {
+        if (cfg.mata) OBJ.danar(999, r.pos, r.tipo);
+        else if (r.cdAtaque <= 0) { r.cdAtaque = 1.0; r.ataque = 0.45; OBJ.danar(cfg.dano, r.pos, r.tipo); }
       }
       if (cfg.jefe) this.iaJefe(r, dt, dist);
 
@@ -328,6 +356,47 @@ const Robots = {
     }
     this.updateBalas(dt);
     this.updateBotin(dt);
+    this.updateRestos(dt);
+  },
+
+  // ---------- alumno: los robots se mueven según la foto que manda el profe ----------
+  updateRemoto(dt) {
+    for (const r of [...this.vivos]) {
+      if (!r.remoto) continue;
+      r.aparecer = Math.min(1, r.aparecer + dt * 1.6);
+      r.raiz.scale.setScalar(Math.max(0.01, smooth(0, 1, r.aparecer)));
+      r.flash = Math.max(0, r.flash - dt);
+      if (r.mech) Mech.brillo(r);
+      else if (!r.furia) for (const m of r.mats) m.emissive.setScalar(r.flash > 0 ? 0.9 : 0);
+      else for (const m of r.mats) m.emissiveIntensity = r.flash > 0 ? 3 : 0.35 + Math.sin(G.t * 8) * 0.15;
+      Terror.update(r, dt);
+      const antes = r.pos.clone();
+      r.pos.lerp(r.destino, 1 - Math.exp(-12 * dt));
+      let dy = r.yawDestino - r.yaw; while (dy > Math.PI) dy -= TAU; while (dy < -Math.PI) dy += TAU;
+      r.yaw += dy * Math.min(1, dt * 10);
+      const rapidez = Math.hypot(r.pos.x - antes.x, r.pos.z - antes.z) / Math.max(dt, 1e-4);
+      if (r.cfg.vuela) {
+        r.mod.cuerpo.rotation.x = -0.15 + Math.sin(G.t * 2 + r.fase) * 0.05;
+        r.mod.cuerpo.rotation.z = Math.sin(G.t * 1.3 + r.fase) * 0.12;
+        for (let i = 1; i <= 4; i++) if (r.segs['Helice' + i]) r.segs['Helice' + i].g.rotation.y += dt * 40;
+      } else {
+        r.fase += rapidez * dt * (r.mod.spec.pasoFreq || 5) / Math.max(r.cfg.alto, 0.8) * 0.55;
+        this.animar(r, dt, rapidez);
+      }
+      // láser del mech (lo dispara el profe; aquí se dibuja)
+      if (r.mech && r.laserRed) {
+        const ojos = Mech.mundo(r, r.mech.puntos.ojos), p = V3(r.laserRed[0], r.laserRed[1], r.laserRed[2]);
+        if (r.laserRed[3]) { if (Math.sin(G.t * 40) > 0) FX.segmento(ojos, p, 0.05, '#ff2040', 0.03, 4); }
+        else { FX.segmento(ojos, p, 0.32, '#ff2040', 0.04, 6); FX.luz(p, '#ff2040', 40, 10, 0.05); }
+      }
+      r.raiz.position.copy(r.pos);
+      r.raiz.rotation.y = r.yaw;
+    }
+    this.updateBotin(dt);
+    this.updateRestos(dt);
+  },
+
+  updateRestos(dt) {
     // piezas sueltas
     for (let i = this.restos.length - 1; i >= 0; i--) {
       const p = this.restos[i];
@@ -349,8 +418,8 @@ const Robots = {
     const k = r.furia ? 0.6 : 1;
     if (cfg.mov === 'salto' && dist > 3 && dist < 11) {
       r.cdMov = rand(3, 6) * k;
-      const pj = Jugador.pos, adelanto = 0.35;
-      this.saltar(r, pj.x + Jugador.vel.x * adelanto, pj.z + Jugador.vel.z * adelanto, 2.2, 0.55);
+      const pj = OBJ.pos, adelanto = 0.35;
+      this.saltar(r, pj.x + OBJ.vel.x * adelanto, pj.z + OBJ.vel.z * adelanto, 2.2, 0.55);
     } else if (cfg.mov === 'carga' && dist > 7 && dist < 24) {
       r.cdMov = rand(4, 7) * k; r.carga = 1.1;
       FX.chispazo(r.centro(), '#ff3030', 12, 4);
@@ -358,7 +427,7 @@ const Robots = {
     } else if (cfg.mov === 'golpe' && dist > 12 && dist < 42) {
       r.cdMov = rand(7, 10) * k;
       // aviso en el suelo donde va a caer
-      const pj = Jugador.pos, tx = pj.x, tz = pj.z;
+      const pj = OBJ.pos, tx = pj.x, tz = pj.z;
       FX.aro(V3(tx, Terreno.altura(tx, tz), tz), r.radio + 5, '#ff2a2a', 1.0);
       HUD.feed('⚠ ¡' + (cfg.nombre || r.tipo) + ' salta hacia ti!');
       this.saltar(r, tx, tz, 10 + cfg.alto * 0.4, 1.4, true);
@@ -403,15 +472,15 @@ const Robots = {
         for (let i = 0; i < 24; i++) FX.humo.emitir(p.x + rand(-2, 2), p.y + 0.3, p.z + rand(-2, 2), rand(-9, 9), rand(1, 4), rand(-9, 9), new THREE.Color(0.5, 0.45, 0.38), 2, 1.4, { crece: 3, a: 0.5, roce: 2 });
         Sfx.play('pisoton', dj); FX.sacudir(clamp(1.1 - dj * 0.02, 0.1, 1));
         Destruibles.explosion(p, rad);
-        if (dj < rad && Jugador.enSuelo) Jugador.danar(r.cfg.jefe ? 35 : 25, p, 'pisoton');
-      } else if (dj < r.radio + 1.4 && !Jugador.muerto) {
-        Jugador.danar(r.cfg.dano || 15, r.pos, r.tipo);
+        for (const j of jugadoresVivos()) if (Math.hypot(j.pos.x - p.x, j.pos.z - p.z) < rad && j.enSuelo) j.danar(r.cfg.jefe ? 35 : 25, p, 'pisoton');
+      } else {
+        for (const j of jugadoresVivos()) if (Math.hypot(j.pos.x - r.pos.x, j.pos.z - r.pos.z) < r.radio + 1.4) j.danar(r.cfg.dano || 15, r.pos, r.tipo);
       }
     }
   },
 
   iaDron(r, dt, dist) {
-    const pj = Jugador.pos, cfg = r.cfg;
+    const pj = OBJ.pos, cfg = r.cfg;
     r.orbita += dt * 0.5;
     const rad = 14;
     const ox = pj.x + Math.cos(r.orbita) * rad, oz = pj.z + Math.sin(r.orbita) * rad;
@@ -420,7 +489,7 @@ const Robots = {
     const d = V3(ox - r.pos.x, oy - r.pos.y, oz - r.pos.z);
     const L = d.length();
     if (L > 0.1) r.pos.addScaledVector(d.divideScalar(L), Math.min(v * dt, L));
-    const c = Jugador.centro();
+    const c = OBJ.centro();
     r.yaw = Math.atan2(-(c.x - r.pos.x), -(c.z - r.pos.z));
     r.raiz.position.copy(r.pos);
     r.raiz.rotation.y = r.yaw;
@@ -429,9 +498,9 @@ const Robots = {
     for (let i = 1; i <= 4; i++) r.segs['Helice' + i].g.rotation.y += dt * 40;
     r.cdDisparo -= dt;
     const dd = r.pos.distanceTo(c);
-    if (r.cdDisparo <= 0 && !Jugador.muerto && dd < cfg.disparo.alcance && hayVista(r.pos, c)) {
+    if (r.cdDisparo <= 0 && !OBJ.muerto && dd < cfg.disparo.alcance && hayVista(r.pos, c)) {
       r.cdDisparo = cfg.disparo.cad * rand(0.8, 1.2);
-      const dir = c.clone().add(V3(Jugador.vel.x, 0, Jugador.vel.z).multiplyScalar(dd / 24 * 0.5)).sub(r.pos).normalize();
+      const dir = c.clone().add(V3(OBJ.vel.x, 0, OBJ.vel.z).multiplyScalar(dd / 24 * 0.5)).sub(r.pos).normalize();
       this.bala('rayo', r.pos.clone().addScaledVector(dir, 0.6), dir.multiplyScalar(24), cfg.disparo.dano, { radio: 0.3 });
       Sfx.play('disparoDron', dd);
       FX.luz(r.pos, '#ff3030', 4, 6, 0.1);
@@ -439,11 +508,11 @@ const Robots = {
   },
 
   iaJefe(r, dt, dist) {
-    const pj = Jugador.centro(), k = r.furia ? 0.65 : 1;
+    const pj = OBJ.centro(), k = r.furia ? 0.65 : 1;
     r.cdOrbes -= dt; r.cdPisoton -= dt; r.cdRayos -= dt; r.cdMisil -= dt;
     for (let i = 1; i <= 5; i++) { const led = r.partes['LED' + i]; if (led) led.visible = Math.sin(G.t * (r.furia ? 18 : 6) + i * 1.3) > -0.3; }
     if (r.partes.Nucleo) r.partes.Nucleo.scale.setScalar(r.mod.spec.escala * ST * (1 + Math.sin(G.t * 5) * 0.15));
-    if (Jugador.muerto || r.aparecer < 1) return;
+    if (OBJ.muerto || r.aparecer < 1) return;
     const boca = r.centro().add(V3(0, r.cfg.alto * 0.25, 0));
     if (r.mech) this.mechAtaques(r, dt, dist);
     // orbes en abanico
@@ -471,7 +540,7 @@ const Robots = {
         FX.aro(p, 12, '#ffaa44', 0.6); FX.aro(p, 8, '#ff5522', 0.5);
         for (let i = 0; i < 30; i++) FX.humo.emitir(p.x + rand(-3, 3), p.y + 0.3, p.z + rand(-3, 3), rand(-8, 8), rand(1, 4), rand(-8, 8), new THREE.Color(0.5, 0.45, 0.38), 2, 1.5, { crece: 3, a: 0.5, roce: 2 });
         Sfx.play('pisoton', dist); FX.sacudir(0.9);
-        if (dist < 12 && Jugador.enSuelo) Jugador.danar(35, p, 'pisoton');
+        for (const j of jugadoresVivos()) if (Math.hypot(j.pos.x - p.x, j.pos.z - p.z) < 12 && j.enSuelo) j.danar(35, p, 'pisoton');
       }
     }
     // tormenta eléctrica: círculos de aviso y luego rayos
@@ -480,7 +549,7 @@ const Robots = {
       HUD.anuncio('⚡ ¡TORMENTA ELÉCTRICA!', 'Sal de los círculos rojos', '#ff7766');
       const n = r.furia ? 7 : 5;
       for (let i = 0; i < n; i++) {
-        const p = i === 0 ? Jugador.pos.clone() : Jugador.pos.clone().add(V3(rand(-12, 12), 0, rand(-12, 12)));
+        const p = i === 0 ? OBJ.pos.clone() : OBJ.pos.clone().add(V3(rand(-12, 12), 0, rand(-12, 12)));
         p.y = alturaSuelo(p.x, p.z, p.y + 0.5, 0.3);
         const aviso = new THREE.Mesh(new THREE.RingGeometry(2.6, 3, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col('#ff2a2a').multiplyScalar(2.5), transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
         const disco = new THREE.Mesh(new THREE.CircleGeometry(3, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff2a2a', transparent: true, opacity: 0.18, depthWrite: false }));
@@ -497,7 +566,7 @@ const Robots = {
             FX.rayo(p.clone().add(V3(rand(-8, 8), 80, rand(-8, 8))), p, true);
             Sfx.play('trueno', p.distanceTo(Jugador.pos) * 0.3);
             Destruibles.explosion(p, 3);
-            if (Math.hypot(Jugador.pos.x - p.x, Jugador.pos.z - p.z) < 3.2) Jugador.danar(30, p, 'rayo');
+            for (const j of jugadoresVivos()) if (Math.hypot(j.pos.x - p.x, j.pos.z - p.z) < 3.2) j.danar(30, p, 'rayo');
           }
         };
         G.anim.push(f);
@@ -649,7 +718,12 @@ const Oleadas = {
     this.tipo = this.PLAN[this.n] || 'normal';
     this.cola = this.componer();
     this.fase = 'oleada'; this.genT = 1.5; this.refT = 12; this.refAviso = false;
-    if (this.n === 1) { Mapa.quitarRejas(); HUD.feed('🔓 ¡Se abrieron las rejas!'); }
+    this.anunciar();
+  },
+
+  // anuncio, clima y rejas al empezar una oleada (lo usan el profe y los alumnos)
+  anunciar() {
+    if (this.n >= 1 && !this.rejasAbiertas) { this.rejasAbiertas = true; Mapa.quitarRejas(); HUD.feed('🔓 ¡Se abrieron las rejas!'); }
     Clima.poner(this.tipo === 'final' ? 'desatado' : this.tipo === 'morado' ? 'final' : this.tipo === 'jefe' ? 'tormenta' : this.tipo === 'drones' ? 'niebla' : 'noche');
     if (this.tipo === 'final') { HUD.anuncio('☠ OLEADA FINAL ☠', 'ARDUNOL lanza su arma suprema', '#ff3355'); Sfx.play('jefe'); FX.sacudir(1.2); }
     else if (this.tipo === 'morado') { HUD.anuncio('⚡ OLEADA ' + this.n + ' ⚡', 'ARDUNOL despierta a su robot gigante', '#c879ff'); Sfx.play('jefe'); FX.sacudir(1); }
@@ -672,6 +746,7 @@ const Oleadas = {
   },
 
   update(dt) {
+    if (Red.cliente) { this.updateCliente(dt); return; }
     if (this.fase === 'esperaProfe') { HUD.oleada('PREPÁRATE', '🔒 Esperando que el profe abra las rejas'); return; }
     if (this.fase === 'descanso') {
       this.cuenta -= dt;
@@ -700,14 +775,31 @@ const Oleadas = {
         this.fase = 'fin';
         return;
       }
-      if (quedan === 0) {
-        const bono = 20 * this.n;
-        sumarPuntos(bono);
-        HUD.anuncio('¡OLEADA SUPERADA!', '+' + bono + ' puntos de bonus', '#3ee08f');
-        Jugador.curar(40);
-        this.fase = 'descanso'; this.cuenta = this.DESCANSO; this.quizEn = 3.2; // después de que se va el anuncio
-        Clima.poner('dia');
-      }
+      if (quedan === 0) this.superada();
     }
+  },
+
+  superada() {
+    const bono = 20 * this.n;
+    sumarPuntos(bono);
+    HUD.anuncio('¡OLEADA SUPERADA!', '+' + bono + ' puntos de bonus', '#3ee08f');
+    Jugador.curar(40);
+    this.fase = 'descanso'; this.cuenta = this.DESCANSO; this.quizEn = 3.2; // después de que se va el anuncio
+    Clima.poner('dia');
+  },
+
+  // ---------- alumno: la oleada la decide el profe ----------
+  aplicarRed(n, fase, cuenta, tipo, quedan) {
+    if (n > this.n) { this.n = n; this.tipo = tipo; this.cola = []; this.anunciar(); }
+    if (this.fase === 'oleada' && fase === 'descanso') this.superada();
+    this.n = n; this.fase = fase; this.cuenta = cuenta; this.tipo = tipo; this.quedan = quedan;
+  },
+  updateCliente(dt) {
+    if (this.quizEn > 0 && (this.quizEn -= dt) <= 0) Quiz.lanzar();
+    if (this.fase === 'esperaProfe') HUD.oleada('PREPÁRATE', '🔒 Esperando que el profe abra las rejas');
+    else if (this.fase === 'descanso') {
+      this.cuenta = Math.max(0, this.cuenta - dt);
+      HUD.oleada(this.n === 0 ? 'PREPÁRATE' : 'DESCANSO', (this.n === 0 ? 'Las rejas se abren en ' : this.n + 1 === this.TOTAL ? '☠ La OLEADA FINAL empieza en ' : 'La oleada ' + (this.n + 1) + ' de ' + this.TOTAL + ' llega en ') + Math.ceil(this.cuenta) + ' s');
+    } else if (this.fase === 'oleada') HUD.oleada(this.tipo === 'final' ? '☠ OLEADA FINAL ☠' : 'OLEADA ' + this.n + ' / ' + this.TOTAL, '🤖 ' + (this.quedan || 0) + ' robots restantes');
   },
 };

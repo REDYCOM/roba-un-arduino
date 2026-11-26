@@ -123,14 +123,14 @@ const Mech = {
     m.mixer.timeScale = damp(m.mixer.timeScale, r.rafaga > 0 ? 0.25 : Math.max(0.18, ritmo * 1.1), 6, dt);
     m.mixer.update(dt);
     // apuntar: inclina el cuerpo hacia el jugador cuando está arriba o abajo
-    const dy = Jugador.pos.y - r.pos.y;
+    const dy = (r.obj || Jugador).pos.y - r.pos.y;
     if (!r.brinco) r.mod.cuerpo.rotation.x = damp(r.mod.cuerpo.rotation.x, clamp(dy * 0.01, -0.08, 0.08), 3, dt);
   },
 
   mundo(r, p) { return r.mod.cuerpo.localToWorld(p.clone()); },
 
   ataques(r, dt, dist) {
-    const pj = Jugador.centro(), k = r.furia ? 0.65 : 1;
+    const pj = OBJ.centro(), k = r.furia ? 0.65 : 1;
     r.cdMetralla -= dt; r.cdCanon -= dt; r.cdLaser -= dt;
     const vista = hayVista(this.mundo(r, r.mech.puntos.ojos), pj);
 
@@ -161,7 +161,7 @@ const Mech = {
         setTimeout(() => {
           if (r.muerto) return;
           const boca = this.mundo(r, r.mech.puntos.canon[i % 2]);
-          const d = V3(rand(-0.4, 0.4), 1, 0).add(Jugador.centro().sub(boca).normalize()).normalize();
+          const d = V3(rand(-0.4, 0.4), 1, 0).add((r.obj || Jugador).centro().sub(boca).normalize()).normalize();
           Robots.bala('misil', boca, d.multiplyScalar(16), 22, { vida: 7, radio: 0.6, giro: 2 });
           FX.luz(boca, '#ff7030', 30, 12, 0.15); FX.chispazo(boca, '#ffaa44', 14, 6);
           Sfx.play('bazuca', dist * 0.5);
@@ -175,7 +175,7 @@ const Mech = {
       r.cdLaser = (r.furia ? 9 : 14) * k;
       const lado = V3(-(pj.z - r.pos.z), 0, pj.x - r.pos.x).normalize().multiplyScalar(r.furia ? 14 : 11);
       if (Math.random() < 0.5) lado.negate();
-      r.laser = { t: 0, a: Jugador.pos.clone().add(lado), b: Jugador.pos.clone().sub(lado), cdDano: 0 };
+      r.laser = { t: 0, a: OBJ.pos.clone().add(lado), b: OBJ.pos.clone().sub(lado), cdDano: 0, punto: null };
       HUD.anuncio('🔴 ¡LÁSER!', 'Salta o aléjate de la línea roja', '#ff4466');
       Sfx.play('laser', dist * 0.3);
     }
@@ -189,6 +189,7 @@ const Mech = {
     const u = clamp((L.t - AVISO) / BARRIDO, 0, 1);
     const p = L.a.clone().lerp(L.b, smooth(0, 1, u));
     p.y = alturaSuelo(p.x, p.z, Math.max(p.y, r.pos.y) + 6, 0.2);
+    L.punto = p;
     if (L.t < AVISO) {
       // aviso: rayo fino que parpadea
       if (Math.sin(G.t * 40) > 0) FX.segmento(ojos, p, 0.05, '#ff2040', 0.03, 4);
@@ -199,9 +200,10 @@ const Mech = {
     if (Math.random() < dt * 40) FX.chispas.emitir(p.x, p.y + 0.1, p.z, rand(-3, 3), rand(2, 6), rand(-3, 3), FX.c('#ff6a3c', 3), 0.2, 0.5);
     if (Math.random() < dt * 8) Destruibles.explosion(p, 1.5);
     // daño: el jugador cerca del punto de impacto o atravesado por el rayo
-    const pc = Jugador.centro();
-    const cerca = Math.hypot(pc.x - p.x, pc.z - p.z) < 1.8 && Math.abs(Jugador.pos.y - p.y) < 1.6;
-    if (!Jugador.muerto && cerca && L.cdDano <= 0) { L.cdDano = 0.35; Jugador.danar(r.furia ? 22 : 16, p, 'laser'); }
+    L.punto = p; // para dibujarlo en las pantallas de los alumnos
+    if (L.cdDano <= 0) for (const j of jugadoresVivos()) {
+      if (Math.hypot(j.pos.x - p.x, j.pos.z - p.z) < 1.8 && Math.abs(j.pos.y - p.y) < 1.6) { L.cdDano = 0.35; j.danar(r.furia ? 22 : 16, p, 'laser'); }
+    }
     if (u >= 1) r.laser = null;
   },
 
@@ -227,8 +229,7 @@ const Mech = {
     FX.sacudir(1.4);
     HUD.anuncio('¡ARDUNOL DESATADO!', 'Destrúyelo y roba el ARDUINO', '#ff3355');
     Sfx.play('jefe');
-    const dj = Math.hypot(Jugador.pos.x - p.x, Jugador.pos.z - p.z);
-    if (dj < 16 && !Jugador.muerto) Jugador.danar(30, p, 'pisoton');
+    for (const j of jugadoresVivos()) if (Math.hypot(j.pos.x - p.x, j.pos.z - p.z) < 16) j.danar(30, p, 'pisoton');
   },
 
   // muerte: se tambalea, explota por partes y cae

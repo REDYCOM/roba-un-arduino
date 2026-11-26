@@ -1,7 +1,7 @@
 // Cambia la clave del profe sin escribirla en el código.
 // Uso (desde la carpeta del proyecto):
 //    node herramientas/clave-profe.mjs "tu clave nueva"
-// Guarda en web/js/profe.js solo la "huella" SHA-256 de la clave: quien lea el
+// Guarda en web/js/profe.js y servidor/clave.json solo la "huella" SHA-256: quien lea el
 // código no puede saber cuál es. (Con el multijugador la revisará el servidor.)
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -16,6 +16,8 @@ const huella = createHash('sha256').update('roba-un-arduino:' + clave).digest('h
 const ruta = fileURLToPath(new URL('../web/js/profe.js', import.meta.url));
 const s = readFileSync(ruta, 'utf8');
 const nuevo = s.replace(/const HUELLA_CLAVE_PROFE = '[0-9a-f]{64}';/, `const HUELLA_CLAVE_PROFE = '${huella}';`);
-if (nuevo === s) { console.error('No encontré HUELLA_CLAVE_PROFE en web/js/profe.js'); process.exit(1); }
+if (!/const HUELLA_CLAVE_PROFE = '[0-9a-f]{64}';/.test(s)) { console.error('No encontré HUELLA_CLAVE_PROFE en web/js/profe.js'); process.exit(1); }
 writeFileSync(ruta, nuevo);
+// el servidor del multijugador revisa la misma huella
+writeFileSync(fileURLToPath(new URL('../servidor/clave.json', import.meta.url)), JSON.stringify({ huella }, null, 2) + '\n');
 console.log('✅ Clave del profe cambiada. Recuerda guardar (commit) y publicar de nuevo.');

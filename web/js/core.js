@@ -62,7 +62,10 @@ const PUNTOS = {
 };
 
 // Todo lo que da puntos suma al puntaje Y a tus puntos para canjear
-function sumarPuntos(n) { G.puntos += n; G.canje += n; G.misPuntos += n; G.puntosEq[MI_EQUIPO] += n; HUD.puntos(); }
+function sumarPuntos(n) {
+  G.puntos += n; G.canje += n; G.misPuntos += n; G.puntosEq[MI_EQUIPO] += n; HUD.puntos();
+  if (Red.cliente) Red.ev({ a: 'suma', n }, 'host'); // en multijugador, el profe lleva los puntos de los equipos
+}
 
 // ---------------------------------------------------------------------
 //  Entrada

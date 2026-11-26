@@ -56,6 +56,7 @@
   <div id="infoCard" class="oculto"></div>
 
   <div id="anuncio"></div>
+  <div id="salaHud" class="oculto"></div>
   <div id="insigniaProfe" class="oculto">👑 PROFE · <kbd>F1</kbd> panel</div>
   <div id="quiz" class="oculto"></div>
   <div id="aviso" class="oculto">Pulsa <kbd>E</kbd> para usar la ametralladora</div>
@@ -102,6 +103,9 @@
       <input type="range" id="sliderJug" min="1" max="30" value="1">
       <div class="nota chica">Por ahora es para probar cómo escala el juego; con el multijugador será automático.</div>
     </div>
+    <div id="filaCodigo" class="filaCodigo"><span>🌐 Código de sala <small>(si el profe te dio uno)</small></span>
+      <input id="codigoSala" maxlength="4" inputmode="numeric" placeholder="Ej: 4821" autocomplete="off"></div>
+    <div id="redMsg"></div>
     <button id="btnJugar" disabled>Cargando…</button>
     <div class="fila2"><button class="secundario" onclick="Info.abrir()">ℹ️ Información</button>
     <button id="btnCreditos" class="secundario" onclick="document.getElementById('creditos').classList.remove('oculto')">📜 Créditos</button></div>
@@ -198,7 +202,7 @@
     window.THREE = THREE;
     window.ADD = { mergeGeometries, EffectComposer, RenderPass, UnrealBloomPass, OutputPass, GLTFLoader, MeshoptDecoder, SkeletonUtils };
     const archivos = ['datos/base-equipo.js', 'datos/componentes.js', 'js/core.js', 'js/audio.js', 'js/world.js', 'js/fx.js', 'js/player.js',
-                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/jefe-mech.js', 'js/robots.js', 'js/componentes.js', 'js/final.js', 'js/avatar.js', 'js/profe.js', 'js/info.js', 'js/runas.js', 'js/poderes.js', 'js/preguntas.js', 'js/retos.js', 'js/tienda.js', 'js/hud.js', 'js/main.js'];
+                      'js/weapons.js', 'js/torretas.js', 'js/modelos-robots.js', 'js/terror.js', 'js/jefe-mech.js', 'js/robots.js', 'js/componentes.js', 'js/final.js', 'js/avatar.js', 'js/profe.js', 'js/info.js', 'js/red.js', 'js/runas.js', 'js/poderes.js', 'js/preguntas.js', 'js/retos.js', 'js/tienda.js', 'js/hud.js', 'js/main.js'];
     for (const f of archivos) {
       await new Promise((ok, mal) => {
         const s = document.createElement('script');

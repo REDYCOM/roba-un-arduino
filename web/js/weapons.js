@@ -169,6 +169,7 @@ const Armas = {
   },
 
   disparar() {
+    Red.tiros++; // los demás jugadores ven tu disparo
     const a = this.actual, o = Jugador.ojo(), boca = this.posBoca();
     this.enfriar = a.cad * G.mods.cad;
     Sfx.play(a.sfx);
